@@ -1,0 +1,10 @@
+numpy 
+astropy 
+matplotlib
+astroquery>=0.4.7
+spectral-cube
+bottleneck
+regions
+reproject
+stdatamodels>=1.7.1
+flask
