@@ -1,0 +1,159 @@
+from astropy.io.votable.table import parse as vo_parse
+from astropy.io.votable.table import is_votable
+from flask import jsonify
+
+from astropy.table import Table
+from astropy.time import Time, TimeDelta
+
+import datetime
+import io
+import numpy
+
+from astropy.io import votable
+from astropy import coordinates
+from astropy import table
+from astropy import units
+from astropy.time import Time
+
+MAGIC_TIMEORIGINS = {
+  "MJD-origin": 2400000.5,
+  "JD-origin": 0,
+  }
+
+TIMESYS_SCALES_TO_ASTROPY = {
+    'TAI': 'tai',
+    'TT': 'tt',
+    'UT': 'ut1',
+    'UTC': 'utc',
+#    'GPS': is handled separately, needs to be researched
+    'TCG': 'tcg',
+    'TCB': 'tcb',
+    'TDB': 'tdb',
+}
+     
+def locate_time_column(table, times_meta):
+    """returns a numpy array of times in the VOTable table together with
+    its TIMESYS metadata.
+
+    The time is the first column referencing something in timesystems.
+    """
+    for col_index, field in enumerate(table.fields):
+        if field.ref in times_meta.values(): # can also be getattr(column, 'ref')
+            break
+    else:
+        raise Exception("No column referencing a TIMESYS found")
+
+    return table.to_table().columns[col_index]
+
+def to_jd(times, times_meta):
+    """returns Time instances given in JD.
+
+    This is where we use FIELD metadata, TIMESYS/@timeorigin and 
+    TIMESYS/@timescale
+    """
+    try:
+        astropy_scale =TIMESYS_SCALES_TO_ASTROPY[times_meta["timescale"]]
+    except KeyError:
+        raise Exception("Unsupported timescale: %s"%times_meta["timescale"])
+
+    if "timeorigin" not in times_meta:
+        # no timeorigin given: it's some sort of civic year
+        if times.dtype=='O': 
+            # These are strings and hence presumably timestamps
+            # (we should rather inspect xtype here)
+            # This should really work like this:
+            # times = Time(times, format="isot", scale=astropy_scale)
+            # but because of breakage in Debian stretch we do it half-manually:
+            # times = Time(
+            #     [datetime.datetime.strptime(
+            #             v.split(b".")[0].decode("ascii"), "%Y-%m-%dT%H:%M:%S")
+            #         for v in times],
+            #     scale=astropy_scale)
+            times.format = 'jd'
+
+        else:
+            # in VOTable, these must be julian or besselian years
+            if times.unit not in ["yr", "byr"]:
+                raise Exception("Floats without timeorigin only allowed when"
+                    " unit is year.")
+            times = Time(times, 
+                format={"yr": "jyear", "byr": "byear"}[str(times.unit)],
+                scale=astropy_scale)
+            times.format = 'jd'
+
+    else:
+        times = Time(times_meta["timeorigin"], format="jd",
+            scale=astropy_scale) + TimeDelta(times)
+        # times = Time(
+        #     (times.to(units.d)+times_meta["timeorigin"]*units.d),
+        #     format="jd",
+        #     scale=astropy_scale)
+    
+    return times
+
+
+
+def ts_votable_reader(filename):
+    '''Function to parse votable object or filename into Time and data Table objects'''
+    
+    #This first check is actually unnecessary
+    if is_votable(filename): # With Gaia we have 'astropy.io.votable.tree.VOTableFile'
+        vot = vo_parse(filename)
+        #timesystem = vot.resources[0].time_systems
+        # We assume that all tables in resource are the same
+        tbl = vot.get_first_table().to_table(use_names_over_ids=True)
+        # tbl = vot.resources[0].tables[0]
+    
+        # Print the table column information
+        tinfo = tbl.info(out=None)
+        tinfo.pprint()
+
+        # Create an empty list for our results
+        times = []
+        data = []
+        
+        # Flatten down all tables
+        for resource in vot.resources:
+            for i, table in enumerate(resource.tables):
+                timesystems = resource.time_systems[i] # only element in a HomogeneousList, that contains dictionaries
+                times_meta = {key: getattr(timesystems, key) for key in timesystems._attr_list} 
+                # just extract the times MaskedColumn
+                t = locate_time_column(table, times_meta)
+
+                tt = Time(t, scale=timesystems.timescale.lower(),format='jd')
+                tt2 = to_jd(t, times_meta)
+
+                tbl = table.to_table()                 
+                if timesystems.ID in tbl.colnames:
+                    tbl.remove_column(timesystems.ID)
+                times.append(tt)
+                data.append(tbl)
+
+        return times, data
+    
+if __name__ == '__main__':
+    
+    import requests, os, io
+    import tempfile
+    
+    
+    url = 'https://gea.esac.esa.int/data-server/data?RETRIEVAL_TYPE=EPOCH_PHOTOMETRY&ID={0}&FORMAT=votable&RELEASE=Gaia+DR3&DATA_STRUCTURE=INDIVIDUAL'.format('Gaia+DR3+4111834567779557376')
+    resp = requests.get(url, timeout=1, verify=True)
+    res = resp.content
+    if isinstance(resp.content, bytes):
+        f = io.BytesIO(res)
+    else:
+        f = res
+    print(type(f)) # '_io.BytesIO'
+    vot = vo_parse(f)
+    # t = Table.read('aj285677t3_votable.xml')
+    # vot.to_xml('test.xml')
+    # if is_votable(res):
+    with tempfile.NamedTemporaryFile(delete=True) as fp:
+        fp.write(res)
+        # Determine content-type in response (VOTable, FITS or csv)
+        if resp.headers['content-type'] == 'application/x-votable+xml':
+            if os.path.exists(fp.name):
+                times, data = ts_votable_reader(fp.name)
+                pass
+                

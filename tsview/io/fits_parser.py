@@ -1,11 +1,13 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+import os
 import warnings
-
 import numpy as np
 
 from astropy.io import registry, fits
 from astropy.table import Table
 from astropy.time import Time, TimeDelta
+
+from tsview import DATADIR
 
 __all__ = ["ts_fits_reader"]
 
@@ -16,7 +18,7 @@ def ts_fits_reader(filename):
 
     This allows reading a supported FITS file using syntax such as::
     >>> from tsview.io import ts_fits_reader
-    >>> timeseries = TimeSeries.read('<name of fits file>', format='kepler.fits')  # doctest: +SKIP
+    >>> time, data = ts_fits_reader('<name of fits file>')  # doctest: +SKIP
 
     Parameters
     ----------
@@ -31,11 +33,10 @@ def ts_fits_reader(filename):
     """
     # Get fits structure info in a table
     finfo = fits.info(filename, output=False) # list of tuples
-    tinfo = Table(rows=finfo, names=('No.', 'Name', 'Ver', 'Type', 'Cards', 'Dimensions', 'Format')) # Convert into table
+    tinfo = Table(rows=finfo, names=('No.', 'Name', 'Ver', 'Type', 'Cards', 'Dimensions', 'Format', '')) # Convert into table
     
     # Primary header without reading file
-    hdr = fits.getheader(filename, extname="PRIMARY")
-
+    hdr = fits.getheader(filename, extname="PRIMARY", ignore_missing_simple=True)
     
     # Get the telescope
     telescop = hdr['telescop'].lower()
@@ -52,8 +53,8 @@ def ts_fits_reader(filename):
     # elif telescop == 'kepler':
     #     hdu = hdulist[1]
     else:
-        raise NotImplementedError("{} is not implemented, only KEPLER or TESS are "
-                                  "supported through this reader".format(hdulist[0].header['telescop']))
+        raise NotImplementedError("{} is not implemented, only JWST is "
+                                  "supported through this reader".format(telescop))
 
     # Time
     if 'INT_TIMES' in tinfo['Name']: 
@@ -64,7 +65,9 @@ def ts_fits_reader(filename):
             sub_cols = [col for col in t.colnames if format in col.lower()]
             int_mid = [col for col in sub_cols if 'mid' in col]
             if len(int_mid) == 1:
+                
                 scale = int_mid[0].split('_')[-1].lower()
+                format = 'mjd'
         
         time = Time(t[int_mid[0]].data, format=format, scale=scale)
 
@@ -86,12 +89,11 @@ def ts_fits_reader(filename):
             tab.meta.update(hdr_time)
             data.append(tab)
     # rateints
-    if 'SCI'in tinfo['Name']:
+    elif 'SCI'in tinfo['Name']:
         # It is a rateints so the Type is ImageHDU and that is a cube to inspect in slices dimension?
         # TODO: Consult with Javier
         pass
-        
-'''    if hdu.header['EXTVER'] > 1:
+    '''    if hdu.header['EXTVER'] > 1:
         raise NotImplementedError("Support for {0} v{1} files not yet "
                                   "implemented".format(hdu.header['TELESCOP'], hdu.header['EXTVER']))
 
@@ -129,11 +131,52 @@ def ts_fits_reader(filename):
     time.format = 'isot'
 
     # Remove original time column
-    tab.remove_column('time')
-'''
+    tab.remove_column('time')'''
 
     return time, data
 
-registry.register_reader('kepler.fits', TimeSeries, ts_fits_reader)
-registry.register_reader('kepler.fits', TimeSeries, kepler_fits_reader)
-registry.register_reader('tess.fits', TimeSeries, kepler_fits_reader)
+
+# registry.register_reader('jwst.fits', TimeSeries, ts_fits_reader)
+
+if __name__ == '__main__':
+    
+    from datetime import datetime
+    start_time = datetime.now()
+    
+    filename = 'jw02783-o002_t001_miri_p750l-slitlessprism_x1dints.fits'
+    time, data = ts_fits_reader(os.path.join(DATADIR, filename))
+    
+    end_time = datetime.now()
+    delta = end_time - start_time
+    print('Time to execute app is {} seconds'.format(delta.total_seconds()))
+    
+    
+    import requests,io, gzip
+    import tempfile
+    
+    start_time = datetime.now()
+    
+    tap_server = 'https://jwst.esac.esa.int/server/tap/sync'
+    q = 'SELECT a.artifactid FROM  jwst.artifact AS a  WHERE a.uri LIKE \'%{0}%.fits\' AND a.uri LIKE \'%{1}%\' ORDER BY a.filename DESC'.format('x1dints','jw02783-o002_t001_miri_p750l-slitlessprism')
+    r = requests.post(tap_server, data = {
+        'REQUEST':'doQuery',
+        'LANG':'ADQL',
+        'FORMAT':'json',
+        'PHASE':'RUN',
+        'QUERY':q
+        })
+    artifact_id = r.json()['data'][0][0]
+    url_dp = 'https://jwst.esac.esa.int/server/data?ARTIFACTID={}&RETRIEVAL_TYPE=PRODUCT'.format(artifact_id)
+    resp = requests.get(url_dp, timeout=1, verify=True)
+    #fits_content = io.BytesIO(gzip.decompress(resp.content))
+    fits_content = gzip.decompress(resp.content)
+    with tempfile.NamedTemporaryFile(delete=True) as fp:
+        fp.write(fits_content)
+        # Determine content-type in response (VOTable, FITS or csv)
+        if resp.headers['content-type'] == 'application/fits':
+            if os.path.exists(fp.name):
+                time, data = ts_fits_reader(fp.name)
+    
+    end_time = datetime.now()
+    delta = end_time - start_time
+    print('Time to execute app is {} seconds'.format(delta.total_seconds()))
