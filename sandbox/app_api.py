@@ -1,11 +1,15 @@
-from flask import Flask, jsonify
+from flask import request, jsonify
+from flask import Flask
 import requests
 import io
+import os
 import json
+import gzip
 import tempfile
 
 from tsview.io.fits_parser import ts_fits_reader
 from tsview.io.vo_parser import ts_votable_reader
+from astropy.utils.misc import JsonCustomEncoder
 #from lxml import etree as ElementTree
 
 # config file stored in configfile or database
@@ -36,7 +40,7 @@ def mission_config(data_access, mission):
     '''Return the single dictionary corresponding to the mission'''
     # check if mission is in schema if not raise exception
     if not any(d['mission'] == mission for d in data_access): 
-        raise NotImplementedError("Mission {} schema for time series is not implemented yet".format(mission)
+        raise NotImplementedError("Mission {} schema for time series is not implemented yet".format(mission))
     mission_access = [d for d in data_access if d['mission'] == mission][0]
     return mission_access
     
@@ -61,7 +65,7 @@ def adql_request(adql_info, obsID, prodType):
 
     
 def dp_request(url_str, id):
-    '''Funtion to request data product through server´s response '''
+    '''Funtion to request data product through server´s response. Outputs a list of Times and a list of Tables.'''
 
     url = url_str.format(id)
     #Get response from API
@@ -98,49 +102,85 @@ def get_data(resp):
     
     #W rite the response to a temporary file
     with tempfile.NamedTemporaryFile(delete=True) as fp:
-        fp.write(f)
+        fp.write(res)
         # Determine content-type in response (VOTable, FITS or csv)
         if resp.headers['content-type'] == 'application/fits':
             if os.path.exists(fp.name):
                 time, data = ts_fits_reader(fp.name)
         elif resp.headers['content-type'] == 'application/x-votable+xml': 
-            time, data = ts_votable_parser(fp.name)
+            if os.path.exists(fp.name):
+                time, data = ts_votable_reader(fp.name)
     # Here the temporary file is deleted
     return time, data
     
 
 
 #data = json.loads(data_file.read())
-data_allmissions = json.loads(data_access)
-
-#select the mission access details
-mission_access = mission_config(data_access, mission)
-server_url = mission_access['server_url']
-endpoint_path = mission_access['endpoint']
-query_params = mission_access['query']
-
-#check if there is an adql query necessary
-if 'adql_info' in mission_access:
-    adql_info = mission_access['adql_info']
-    id = adql_request(adql_info, obsID, prodType)
-else:
-    adql_info = None
-    id = sourceID
-
-# Construct the url string to request https server data
-url_str = build_dp_url(server_url, endpoint_path, query_params)
-resp = dp_request(url_str, id)
-time, data = get_data(resp)
+#data_allmissions = json.loads(data_access)
 
 
 
 app = Flask(__name__)
+app.json_encoder = JsonCustomEncoder
 
 #The route function tells the application which URL should call the associated function.
-@app.route('/', methods=['GET'])
-def index(url):
-    
-    
+@app.route('/ts/v1', methods=['GET'])
+def index():
+    # Check if an ID was provided as part of the URL.
+    # If ID is provided, assign it to a variable.
+    # If no ID is provided, display an error in the browser.
+    if 'mission' in request.args:
+        print(type(request.args['mission']))
+        mission = request.args['mission']
+        #select the mission access details
+        mission_access = mission_config(data_access, mission)
+        server_url = mission_access['server_url']
+        endpoint_path = mission_access['endpoint']
+        query_params = mission_access['query']
+
+        #check if there is an adql query necessary
+        if 'adql_info' in mission_access:
+            adql_info = mission_access['adql_info']
+            obsID = request.args['obsID']
+            prodType = request.args['prodType']
+            if 'obsID' in request.args:
+                id = adql_request(adql_info, obsID, prodType)
+            else:
+                raise Exception('obsID is mandatory for mission {}'.format(mission))
+        else:
+            adql_info = None
+            if 'sourceID' in request.args:
+                sourceID = request.args['sourceID']
+                id = sourceID
+            else:
+                raise Exception('sourceID is mandatory for mission {}'.format(mission))
+
+        # Construct the url string to request https server data
+        url_str = build_dp_url(server_url, endpoint_path, query_params)
+        
+        # Data request 
+        resp = dp_request(url_str, id)
+       
+        # Data extraction
+        time, data = get_data(resp)
+   
+    else:
+        time = data = None
+        raise NotImplementedError("Error: No valid mission field provided. Please specify an mission registered in config.")
+
+    if not isinstance(time, list): 
+        time = [time]
+    else:
+        pass
+    times_final = json.dumps([obj.info._represent_as_dict() for obj in time], cls=JsonCustomEncoder)
+    print('It is not times')
+    # Create an empty list for our results
+    data_final = json.dumps([obj.to_pandas().to_json() for obj in data])
+
+    return {'time': times_final, 'data': data_final}
+    #return jsonify({'times': [obj.info._represent_as_dict() for obj in time]}) 
+
+
     # Parse the already VO table (only in the Gaia Case)
     
     
@@ -151,11 +191,11 @@ if __name__ == '__main__':
     
 #http://0.0.0.0:8000
 
-# User parameters, via Rest API
+'''# User parameters, via Rest API
 mission = 'gaia'
 sourceID = 'Gaia+DR3+4111834567779557376'
-
+http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376
 mission = 'jwst'
 sourceID = None,
 obsID = 'jw02783-o002_t001_miri_p750l-slitlessprism'
-prodType = 'x1dints'
+prodType = 'x1dints' '''

@@ -7,7 +7,7 @@ from astropy.time import Time, TimeDelta
 
 import datetime
 import io
-import numpy
+import numpy as np
 
 from astropy.io import votable
 from astropy import coordinates
@@ -126,6 +126,7 @@ def ts_votable_reader(filename):
                 tbl = table.to_table()                 
                 if timesystems.ID in tbl.colnames:
                     tbl.remove_column(timesystems.ID)
+                
                 times.append(tt)
                 data.append(tbl)
 
@@ -136,6 +137,9 @@ if __name__ == '__main__':
     import requests, os, io
     import tempfile
     
+    import json
+    from astropy.utils.misc import JsonCustomEncoder
+    import numpy as np
     
     url = 'https://gea.esac.esa.int/data-server/data?RETRIEVAL_TYPE=EPOCH_PHOTOMETRY&ID={0}&FORMAT=votable&RELEASE=Gaia+DR3&DATA_STRUCTURE=INDIVIDUAL'.format('Gaia+DR3+4111834567779557376')
     resp = requests.get(url, timeout=1, verify=True)
@@ -155,5 +159,18 @@ if __name__ == '__main__':
         if resp.headers['content-type'] == 'application/x-votable+xml':
             if os.path.exists(fp.name):
                 times, data = ts_votable_reader(fp.name)
-                pass
+                if not isinstance(times, list): 
+                    t = [times]
+                else:
+                    pass
+            result = json.dumps([obj.info._represent_as_dict() for obj in times], cls=JsonCustomEncoder)
+            #this part only concerns the API
+            #print(json.dumps(times, cls=JsonCustomEncoder)) #does not work
+            # if times[0].masked:
+            #     times[0]._time.jd
+            #     times[0].value.data #ndarray witn nans or datetime if it only one point
+            # if data[0].masked:
+            #     result = data[0].to_pandas().to_json() #immune to mask
+
+            pass
                 

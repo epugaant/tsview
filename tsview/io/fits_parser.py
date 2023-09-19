@@ -91,8 +91,10 @@ def ts_fits_reader(filename):
     # rateints
     elif 'SCI'in tinfo['Name']:
         # It is a rateints so the Type is ImageHDU and that is a cube to inspect in slices dimension?
-        # TODO: Consult with Javier
+        # TODO: Consult with Javier as this may be the handshake to cubeviewer.
         pass
+    
+    
     '''    if hdu.header['EXTVER'] > 1:
         raise NotImplementedError("Support for {0} v{1} files not yet "
                                   "implemented".format(hdu.header['TELESCOP'], hdu.header['EXTVER']))
@@ -132,6 +134,9 @@ def ts_fits_reader(filename):
 
     # Remove original time column
     tab.remove_column('time')'''
+    
+    #TODO: Deal with masked data 
+    #TODO: Harmonize time as list of Times
 
     return time, data
 
