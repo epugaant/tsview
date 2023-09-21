@@ -29,7 +29,7 @@ data_access = [
         'url': 'https://jwst.esac.esa.int/server/tap/sync',
         'REQUEST':'doQuery',
         'LANG':'ADQL',
-        'FORMAT':'votable/td',
+        'FORMAT':'json',
         'PHASE':'RUN',
         'QUERY':'SELECT a.artifactid FROM  jwst.artifact AS a WHERE a.uri LIKE \'%{0}%.fits\' AND a.uri LIKE \'%{1}%\' ORDER BY a.filename DESC'
         }
@@ -60,6 +60,7 @@ def adql_request(adql_info, obsID, prodType):
     'PHASE':adql_info['PHASE'],
     'QUERY':adql_info['QUERY'].format(prodType, obsID)
     })
+    print(r.json())
     id = r.json()['data'][0][0]
     return id
 
@@ -130,7 +131,6 @@ def index():
     # If ID is provided, assign it to a variable.
     # If no ID is provided, display an error in the browser.
     if 'mission' in request.args:
-        print(type(request.args['mission']))
         mission = request.args['mission']
         #select the mission access details
         mission_access = mission_config(data_access, mission)
@@ -173,7 +173,6 @@ def index():
     else:
         pass
     times_final = json.dumps([obj.info._represent_as_dict() for obj in time], cls=JsonCustomEncoder)
-    print('It is not times')
     # Create an empty list for our results
     data_final = json.dumps([obj.to_pandas().to_json() for obj in data])
 
@@ -195,7 +194,9 @@ if __name__ == '__main__':
 mission = 'gaia'
 sourceID = 'Gaia+DR3+4111834567779557376'
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376
+
 mission = 'jwst'
 sourceID = None,
 obsID = 'jw02783-o002_t001_miri_p750l-slitlessprism'
-prodType = 'x1dints' '''
+prodType = 'x1dints' 
+http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints'''
