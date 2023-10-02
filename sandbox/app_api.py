@@ -172,16 +172,16 @@ def index():
         time = [time]
     else:
         pass
-    times_final = json.dumps([obj.info._represent_as_dict() for obj in time], cls=JsonCustomEncoder)
-    # Create an empty list for our results
-    data_final = json.dumps([obj.to_pandas().to_json() for obj in data])
-
-    return {'time': times_final, 'data': data_final}
-    #return jsonify({'times': [obj.info._represent_as_dict() for obj in time]}) 
-
-
-    # Parse the already VO table (only in the Gaia Case)
     
+     # Create a list for the objects
+    times_list = [obj.info._represent_as_dict() for obj in time]
+    times_final = json.dumps(times_list, cls=JsonCustomEncoder)
+   
+    data_list = [obj.to_pandas().to_json() for obj in data]
+    data_final = json.dumps(data_list)
+
+    return {'time': times_final, 'times_len': len(times_list) , 'data': data_final, 'data_len': len(data_list)}
+    #return jsonify({'times': [obj.info._represent_as_dict() for obj in time]}) 
     
 
 if __name__ == '__main__':
