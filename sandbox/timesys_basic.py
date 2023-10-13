@@ -3,8 +3,9 @@ import datetime
 
 from astropy.io import votable
 from astropy import table
+from astropy.table import Column, MaskedColumn
 from astropy import units
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 
 TIME_SERIES_LITERALS = b'''<?xml version="1.0" encoding="UTF-8"?>
 <VOTABLE version="1.4" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
@@ -100,10 +101,15 @@ def to_jd(times, times_meta):
             times.format = 'jd'
 
     else:
+      if isinstance(times, (Column, MaskedColumn)):
         times = Time(
-            times.to(units.d)+times_meta["timeorigin"]*units.d,
-            format="jd",
-            scale=astropy_scale)
+          times.to(units.d)+times_meta["timeorigin"]*units.d,
+          format="jd", scale=astropy_scale)
+      elif isinstance(times, Time):
+        times = times + TimeDelta(times_meta["timeorigin"], format="jd",
+                     scale=astropy_scale) 
+      else:
+        pass
     
     return times
 
@@ -127,7 +133,9 @@ if __name__ == '__main__':
 
     times = Time(t, scale=timesystems.timescale.lower(),format='jd')
     print(dir(times_meta))
-    times2 = to_jd(t, times_meta)
+    print(times.value)
+    times2 = to_jd(times, times_meta)
+    print(times2.value)
     #times = to_tcb_barycenter(times, times_meta, obs_location)
 
     apy_table = time_series.to_table()

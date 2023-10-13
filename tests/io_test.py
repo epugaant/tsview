@@ -1,14 +1,17 @@
 import pytest
 import os
 import numpy as np
-import json
+import io
 from astropy import units as u
 from astropy.io import fits
 from astropy.table import Table, MaskedColumn
+from astropy.io import votable
+from astropy.time import Time
 
 
 from tsview import DATADIR
 from tsview.io.fits_parser import ts_fits_reader
+from tsview.io.vo_parser import locate_time_column, to_jd, ts_votable_reader
 
 def test_fits_parser():
     # test #1 loading x1dints
@@ -80,9 +83,72 @@ def test_fits_parser():
     assert data[0]['FLUX'].mask[0] == False
     assert data[0]['FLUX'].unit == u.Unit("Jy")
  
- 
      # test #3 loading rateints
+
+def test_vo_parser():
+    # time system with literal xml example
+    TIME_SERIES_LITERALS = b'''<?xml version="1.0" encoding="UTF-8"?>
+    <VOTABLE version="1.4" xmlns="http://www.ivoa.net/xml/VOTable/v1.3">
+    <RESOURCE>
+        <COOSYS ID="system" epoch="J2015.5" system="ICRS"/>
+        <TIMESYS ID="time_frame" refposition="BARYCENTER" timeorigin="2455197.5" timescale="TCB"/>
+        <TABLE name="ts_data">
+        <FIELD datatype="double" name="obs_time" ucd="time.epoch" unit="d" ref="time_frame"/>
+        <FIELD datatype="float" name="flux" ucd="phot.flux;em.opt.V" unit="s**-1"/>
+        <FIELD datatype="float" name="mag" ucd="phot.mag;em.opt.V" unit="mag"/>
+        <FIELD datatype="float" name="flux_error" ucd="stat.error;phot.flux;em.opt.V" 
+            unit="s**-1"/>
+        <PARAM datatype="double" name="ra" ucd="pos.eq.ra" value="45.7164887146879" ref="system"/>
+        <PARAM datatype="double" name="dec" ucd="pos.eq.dec" value="1.18583048057467" ref="system"/>
+        <DATA>
+            <TABLEDATA>
+            <TR>
+                <TD>1821.2846388435</TD>
+                <TD>168.358</TD>
+                <TD>20.12281560517953</TD>
+                <TD>8.71437</TD>
+            </TR>
+            </TABLEDATA>
+        </DATA>
+        </TABLE>
+    </RESOURCE>
+    </VOTABLE>'''
+    time_expected = ([1821.2846388435])
+    rows_expected = 1
+    time_fto_jd_expected = ([2457018.7846388435]) # time from time origin
+    time_fto_mjd_expected = ([57018.2846388435])
+    
+    vot = votable.parse(io.BytesIO(TIME_SERIES_LITERALS))
+    timesystems = vot.resources[0].time_systems[0] # only element in a HomogeneousList, that contains dictionaries
+    time_series = vot.resources[0].tables[0]
+
+    # Time system comes in an `astropy.utils.collections.HomogeneousList` of TimeSys objects with attributes
+    # ID, refposition, timeorigin and timescale, accessible via timesystems.timescale
+    
+    # Convert TimeSys attributes to dictionary
+    times_meta = {key: getattr(timesystems, key) for key in timesystems._attr_list} 
+    # just extract the times MaskedColumn
+    t = locate_time_column(time_series, times_meta)
+
+    time = Time(t, scale=timesystems.timescale.lower(),format='jd')
+    print(dir(times_meta))
+    time_fto_jd = to_jd(time, times_meta)
+    
+    assert len(time) == rows_expected
+    assert time.format == 'jd'
+    assert time.scale == 'tcb'
+    assert np.array(time_expected) == pytest.approx(time.value)
+    
+    assert len(time_fto_jd) == rows_expected
+    assert time_fto_jd.format == 'jd'
+    assert time_fto_jd.scale == 'tcb'
+    assert np.array(time_fto_jd_expected) == pytest.approx(time_fto_jd.value) 
+    assert np.array(time_fto_mjd_expected) == pytest.approx(time_fto_jd.mjd) 
+    # test with multi in xml
+    # test ts_fits_reader with Gaia file
+    pass
 
 if __name__ == '__main__':
     test_fits_parser()
+    test_vo_parser()
     

@@ -3,6 +3,7 @@ from astropy.io.votable.table import is_votable
 from flask import jsonify
 
 from astropy.table import Table
+from astropy.table import Column, MaskedColumn
 from astropy.time import Time, TimeDelta
 
 import datetime
@@ -82,13 +83,16 @@ def to_jd(times, times_meta):
             times.format = 'jd'
 
     else:
-        times = Time(times_meta["timeorigin"], format="jd",
-            scale=astropy_scale) + TimeDelta(times)
-        # times = Time(
-        #     (times.to(units.d)+times_meta["timeorigin"]*units.d),
-        #     format="jd",
-        #     scale=astropy_scale)
-    
+       if isinstance(times, (Column, MaskedColumn)):
+          times = Time(
+          times.to(units.d)+times_meta["timeorigin"]*units.d,
+          format="jd", scale=astropy_scale)
+       elif isinstance(times, Time):
+          times = times + TimeDelta(times_meta["timeorigin"], format="jd",
+                     scale=astropy_scale) 
+       else:
+          pass
+
     return times
 
 
@@ -121,7 +125,7 @@ def ts_votable_reader(filename):
                 t = locate_time_column(table, times_meta)
 
                 tt = Time(t, scale=timesystems.timescale.lower(),format='jd')
-                tt2 = to_jd(t, times_meta)
+                tt2 = to_jd(tt, times_meta)
 
                 tbl = table.to_table()                 
                 if timesystems.ID in tbl.colnames:

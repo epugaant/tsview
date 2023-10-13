@@ -172,8 +172,10 @@ if __name__ == '__main__':
         })
     artifact_id = r.json()['data'][0][0]
     url_dp = 'https://jwst.esac.esa.int/server/data?ARTIFACTID={}&RETRIEVAL_TYPE=PRODUCT'.format(artifact_id)
+    # function dp_request
     resp = requests.get(url_dp, timeout=1, verify=True)
     #fits_content = io.BytesIO(gzip.decompress(resp.content))
+    # function get_data
     fits_content = gzip.decompress(resp.content)
     with tempfile.NamedTemporaryFile(delete=True) as fp:
         fp.write(fits_content)
