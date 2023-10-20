@@ -47,7 +47,7 @@ def locate_time_column(table, times_meta):
     return table.to_table().columns[col_index]
 
 def to_jd(times, times_meta):
-    """returns Time instances given in JD.
+    """returns Time given in JD, for Time instances and table columns, considering the timeorigin.
 
     This is where we use FIELD metadata, TIMESYS/@timeorigin and 
     TIMESYS/@timescale
@@ -58,84 +58,108 @@ def to_jd(times, times_meta):
         raise Exception("Unsupported timescale: %s"%times_meta["timescale"])
 
     if "timeorigin" not in times_meta:
-        # no timeorigin given: it's some sort of civic year
-        if times.dtype=='O': 
-            # These are strings and hence presumably timestamps
-            # (we should rather inspect xtype here)
-            # This should really work like this:
-            # times = Time(times, format="isot", scale=astropy_scale)
-            # but because of breakage in Debian stretch we do it half-manually:
-            # times = Time(
-            #     [datetime.datetime.strptime(
-            #             v.split(b".")[0].decode("ascii"), "%Y-%m-%dT%H:%M:%S")
-            #         for v in times],
-            #     scale=astropy_scale)
-            times.format = 'jd'
+        
+        if isinstance(times, (Column, MaskedColumn)):
+            # no timeorigin given: it's some sort of civic year
+            if times.dtype=='O': 
+                # These are strings and hence presumably timestamps
+                # (we should rather inspect xtype here)
+                # This should really work like this:
+                # times = Time(times, format="isot", scale=astropy_scale)
+                # but because of breakage in Debian stretch we do it half-manually:
+                # Note: the following was modified to work on files, not on literals
+                # times = Time(
+                #     [datetime.datetime.strptime(
+                #             v.split(".")[0], "%Y-%m-%dT%H:%M:%S")
+                #         for v in times],
+                #     scale=astropy_scale)
+                times = Time(times.astype(str), format="isot", scale=astropy_scale)
+                times.format = 'jd'
 
-        else:
-            # in VOTable, these must be julian or besselian years
-            if times.unit not in ["yr", "byr"]:
-                raise Exception("Floats without timeorigin only allowed when"
-                    " unit is year.")
-            times = Time(times, 
-                format={"yr": "jyear", "byr": "byear"}[str(times.unit)],
-                scale=astropy_scale)
+            else:
+                # in VOTable, these must be julian or besselian years
+                if times.unit not in ["yr", "byr"]:
+                    raise Exception("Floats without timeorigin only allowed when"
+                        " unit is year.")
+                else:    
+                    times = Time(times, 
+                        format={"yr": "jyear", "byr": "byear"}[str(times.unit)],
+                        scale=astropy_scale)
+                    times.format = 'jd'
+        elif isinstance(times, Time):
             times.format = 'jd'
 
     else:
-       if isinstance(times, (Column, MaskedColumn)):
-          times = Time(
-          times.to(units.d)+times_meta["timeorigin"]*units.d,
-          format="jd", scale=astropy_scale)
-       elif isinstance(times, Time):
-          times = times + TimeDelta(times_meta["timeorigin"], format="jd",
-                     scale=astropy_scale) 
-       else:
-          pass
+        if isinstance(times, (Column, MaskedColumn)):
+            times = Time(times.to(units.d)+times_meta["timeorigin"]*units.d,
+            format="jd", scale=astropy_scale)
+        elif isinstance(times, Time):
+            if not isinstance(times_meta["timeorigin"], str):
+                times = times + TimeDelta(times_meta["timeorigin"], 
+                                             format="jd", scale=astropy_scale) 
+            else:
+                times = times + TimeDelta(MAGIC_TIMEORIGINS.get(times_meta["timeorigin"]), 
+                                             format="jd", scale=astropy_scale)
+        else:
+            pass
+        times.format = 'jd'
 
     return times
 
 
 
-def ts_votable_reader(filename):
-    '''Function to parse votable object or filename into Time and data Table objects'''
+def ts_votable_reader(vot):
+    '''Function to parse votable filename or VOTable into Time and data Table objects. The function deals with multiple resources returning two lists '''
     
-    #This first check is actually unnecessary
-    if is_votable(filename): # With Gaia we have 'astropy.io.votable.tree.VOTableFile'
-        vot = vo_parse(filename)
-        #timesystem = vot.resources[0].time_systems
-        # We assume that all tables in resource are the same
-        tbl = vot.get_first_table().to_table(use_names_over_ids=True)
-        # tbl = vot.resources[0].tables[0]
-    
-        # Print the table column information
-        tinfo = tbl.info(out=None)
-        tinfo.pprint()
-
-        # Create an empty list for our results
-        times = []
-        data = []
+    try:
+        # If vot is a filename, it has a read attribute
+        if is_votable(vot): # With Gaia we have 'astropy.io.votable.tree.VOTableFile'
+            vot = vo_parse(vot)
+    except:
+        pass
         
-        # Flatten down all tables
-        for resource in vot.resources:
-            for i, table in enumerate(resource.tables):
-                timesystems = resource.time_systems[i] # only element in a HomogeneousList, that contains dictionaries
-                times_meta = {key: getattr(timesystems, key) for key in timesystems._attr_list} 
-                # just extract the times MaskedColumn
-                t = locate_time_column(table, times_meta)
+    #timesystem = vot.resources[0].time_systems
+    # We assume that all tables in resource are the same
+    tbl = vot.get_first_table().to_table(use_names_over_ids=True)
+    # tbl = vot.resources[0].tables[0]
 
-                tt = Time(t, scale=timesystems.timescale.lower(),format='jd')
-                tt2 = to_jd(tt, times_meta)
+    # Print the table column information
+    tinfo = tbl.info(out=None)
+    tinfo.pprint()
 
-                tbl = table.to_table()                 
-                if timesystems.ID in tbl.colnames:
-                    tbl.remove_column(timesystems.ID)
-                
-                times.append(tt)
-                data.append(tbl)
-
-        return times, data
+    # Create an empty list for our results
+    times = []
+    data = []
     
+    # Flatten down all tables
+    for resource in vot.resources:
+        for i, table in enumerate(resource.tables):
+            timesystems = resource.time_systems[i] # only element in a HomogeneousList, that contains dictionaries
+            print(timesystems)
+            times_meta = {key: getattr(timesystems, key) for key in timesystems._attr_list if getattr(timesystems, key) is not None} 
+            
+            astropy_scale = TIMESYS_SCALES_TO_ASTROPY[times_meta["timescale"]]
+
+            # just extract the times MaskedColumn
+            t = locate_time_column(table, times_meta)
+            print(t.unit)
+
+            if t.dtype=='O': 
+                tt = Time(t.astype(str), format="isot", scale=astropy_scale)
+            else:
+                #{"yr": "jyear", "byr": "byear", "d": "jd"}[str(t.unit)]
+                tt = Time(t, format='jd', scale=astropy_scale)
+            tt = to_jd(tt, times_meta)
+
+            tbl = table.to_table()                 
+            if times_meta['ID'] in tbl.colnames:
+                tbl.remove_column(times_meta['ID'])
+            
+            times.append(tt)
+            data.append(tbl)
+
+    return times, data
+
 if __name__ == '__main__':
     
     import requests, os, io

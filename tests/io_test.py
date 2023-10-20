@@ -12,6 +12,7 @@ from astropy.time import Time
 from tsview import DATADIR
 from tsview.io.fits_parser import ts_fits_reader
 from tsview.io.vo_parser import locate_time_column, to_jd, ts_votable_reader
+from astropy.io.votable.table import is_votable
 
 def test_fits_parser():
     # test #1 loading x1dints
@@ -113,8 +114,8 @@ def test_vo_parser():
         </TABLE>
     </RESOURCE>
     </VOTABLE>'''
-    time_expected = ([1821.2846388435])
     rows_expected = 1
+    time_expected = ([1821.2846388435])
     time_fto_jd_expected = ([2457018.7846388435]) # time from time origin
     time_fto_mjd_expected = ([57018.2846388435])
     
@@ -132,6 +133,7 @@ def test_vo_parser():
 
     time = Time(t, scale=timesystems.timescale.lower(),format='jd')
     print(dir(times_meta))
+    # this tests the Column and MaskedColumn functionality of to_jd function
     time_fto_jd = to_jd(time, times_meta)
     
     assert len(time) == rows_expected
@@ -144,7 +146,44 @@ def test_vo_parser():
     assert time_fto_jd.scale == 'tcb'
     assert np.array(time_fto_jd_expected) == pytest.approx(time_fto_jd.value) 
     assert np.array(time_fto_mjd_expected) == pytest.approx(time_fto_jd.mjd) 
-    # test with multi in xml
+    
+    # test with multi in xml and global ts_votable_reader
+    filename = 'votable_multi_example.xml'
+    vot = votable.parse(os.path.join(DATADIR, filename))
+    rows_expected = 5
+    time_fto0_expected = [2450000.00032, 2450000.00048, 2450000.00064, 2450000.0008,  2450000.00048,
+    2450000.00048, 2450000.00048, 2450000.00048, 2450000.00048, 2450000.00112,
+    2450000.00112, 2450000.00112, 2450000.00112, 2450000.00112, 2450000.00112, 2450000.00144]
+    
+    time_fto1_expected = [2450000.0014401, 2450000.0014401, 2450000.0014401, 2450000.0014401,
+    2450000.0014401,  2450000.00160008, 2450000.00176006, 2450000.00192004,
+    2450000.00208002, 2450000.00208002, 2450000.00208002, 2450000.00208002,
+    2450000.00208002, 2450000.00208002, 2450000.00239998, 2450000.00239998]
+    
+    time_fto2_expected = [2450000.00764061, 2450000.00764061, 2450000.00764061, 2450000.00764061,
+    2450000.00780061, 2450000.00796062, 2450000.00812062, 2450000.00844064,
+    2450000.00844064, 2450000.00860064, 2450000.00876064, 2450000.00860064,
+    2450000.00876064, 2450000.00892065, 2450000.00892065, 2450000.00572057]
+    
+    time_fto3_expected = [2450000.00029799, 2450000.00061799, 2450000.00125799, 2450000.00157799,
+    2450000.00173799, 2450000.00189799, 2450000.00205799, 2450000.00173799,
+    2450000.00189799, 2450000.00285799, 2450000.00269799, 2450000.00253799,
+    2450000.00237799, 2450000.00317799, 2450000.00333799, 2450000.00349799]
+    
+
+
+    times, data = ts_votable_reader(vot)
+    
+    assert len(times) == rows_expected
+    assert np.array(time_fto0_expected) == pytest.approx(times[0].value)
+    assert times[0].scale == 'tcb'
+    assert np.array(time_fto1_expected) == pytest.approx(times[1].value)
+    assert times[1].scale == 'tcb'
+    assert np.array(time_fto2_expected) == pytest.approx(times[2].value)
+    assert times[2].scale == 'tt'
+    assert np.array(time_fto3_expected) == pytest.approx(times[3].value)
+    assert times[3].scale == 'utc'
+    
     # test ts_fits_reader with Gaia file
     pass
 
