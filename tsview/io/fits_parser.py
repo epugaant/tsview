@@ -11,6 +11,54 @@ from tsview import DATADIR
 
 __all__ = ["ts_fits_reader"]
 
+def locate_extension_with_keyword(tinfo, filename, keyword):
+    for i in range(len(tinfo)):
+        hdr = fits.getheader(filename, i, ignore_missing_simple=True)
+        if keyword in hdr:
+            break
+    return i, hdr
+
+def int_times_ext_to_time_arr(filename, scale=None):
+    '''Function to read FITS extension INT_TIMES as table and generate a single time object from int_mid column in mjd'''
+    # Time
+    t = Table.read(filename, hdu="INT_TIMES", astropy_native=True) 
+    if scale is None:
+        fmt = 'BJD'.lower() 
+    if any(fmt in col.lower() for col in t.colnames):   
+        # subset of BJD columns
+        sub_cols = [col for col in t.colnames if fmt in col.lower()]
+        # sub-subset of int_mid colum
+        int_mid = [col for col in sub_cols if 'mid' in col]
+        # if there is only one column
+        if len(int_mid) == 1:
+            # get the scale from the name of the column
+            scale = int_mid[0].split('_')[-1].lower() # 'tdb'
+            format = 'mjd'
+    
+    time = Time(t[int_mid[0]].data, format=format, scale=scale)
+
+    return time
+
+def extract1d_to_timeseries(filename, hdr, tinfo, ts_keys, scale=None, array_int_times = False):
+    if scale is None:
+        scale = 'TDB'.lower()
+    times, data = [], []
+    hdr_time = dict(filter(lambda i:i[0] in ts_keys, hdr.items())) 
+    mask = tinfo['Name'] == 'EXTRACT1D'
+    extver = tinfo['Ver'][mask].data.tolist()
+    if array_int_times:
+        times.append(int_times_ext_to_time_arr(filename))
+    for ver in extver:
+        tab = Table.read(filename, hdu=("EXTRACT1D", ver), astropy_native=True)
+        # propagate time information from the primary to all extract1d
+        tab.meta.update(hdr_time)
+        data.append(tab)
+        if not array_int_times:
+            times.append(Time(tab.meta[scale.upper()+'-MID'], scale=scale, format='mjd'))
+            
+
+    return times, data
+
 
 def ts_fits_reader(filename):
     """
@@ -34,111 +82,57 @@ def ts_fits_reader(filename):
     # Get fits structure info in a table
     finfo = fits.info(filename, output=False) # list of tuples
     tinfo = Table(rows=finfo, names=('No.', 'Name', 'Ver', 'Type', 'Cards', 'Dimensions', 'Format', '')) # Convert into table
+    tinfo.pprint()
     
     # Primary header without reading file
     hdr = fits.getheader(filename, extname="PRIMARY", ignore_missing_simple=True)
     
+    i, hdr = locate_extension_with_keyword(tinfo, filename, 'telescop')
     # Get the telescope
     telescop = hdr['telescop'].lower()
 
-    if telescop == 'jwst':
-        ts_keys = ['TIMESYS', 'TIMEUNIT', 
+    
+    match telescop:
+        case 'jwst':
+            TIMESERIES_KEYWORDS = ['TIMESYS', 'TIMEUNIT', 
                     'EXPSTART', 'EXPMID', 'EXPEND', 'EFFEXPTM', #exposures related
                     'BARTDELT', 'BSTRTIME', 'BENDTIME', 'BMIDTIME', 'HELIDELT', 'HSTRTIME', 'HENDTIME', 'HMIDTIME', #exposures related on reference positions
                     'NINTS', 'EFFINTTM', 'INTSTART', 'INTEND' #integrations related
                     ]
-        if hdr['TIMESYS'] != 'TDB':
-            warnings.warn('Initial header Timesys is \'{0}\''.format(hdr['TIMESYS']))
-        #hdu = hdulist['LIGHTCURVE']
-    # elif telescop == 'kepler':
-    #     hdu = hdulist[1]
-    else:
-        raise NotImplementedError("{} is not implemented, only JWST is "
-                                  "supported through this reader".format(telescop))
-
-    # Time
-    if 'INT_TIMES' in tinfo['Name']: 
-        t = Table.read(filename, hdu="INT_TIMES") 
+            if hdr['TIMESYS'] != 'TDB':
+                warnings.warn('Initial header Timesys is \'{0}\''.format(hdr['TIMESYS']))
+            
+            # if 'INT_TIMES' in tinfo['Name']: 
+            #     times = []
+            #     time = int_times_ext_to_time_arr(filename)
+            #     times.append(time)
+            # else:
+            #     # TODO: Create the Time object from the exposure time only
+            #     pass
+            
+            if 'EXTRACT1D' in tinfo['Name']:
+                times, data = extract1d_to_timeseries(filename, hdr, tinfo, TIMESERIES_KEYWORDS, array_int_times = False)
+            elif 'SCI'in tinfo['Name']:
+                # It is a rateints so the Type is ImageHDU and that is a cube to inspect in slices dimension?
+                # TODO: Consult with Javier as this may be the handshake to cubeviewer.
+                pass
+        case other:
+            times, data = [], []
+            tbl = Table.read(filename, format='fits', astropy_native=True)
+            if any(isinstance(col, Time) for col in tbl.itercols()):
+              for i, col in enumerate(tbl.itercols()): 
+                   if isinstance(col, Time):
+                       break
+            times.append(col)
+            tbl.remove_column(tbl.colnames[i])
+            data.append(tbl)
         
-        format = 'BJD'.lower()
-        if any(format in col.lower() for col in t.colnames):   
-            sub_cols = [col for col in t.colnames if format in col.lower()]
-            int_mid = [col for col in sub_cols if 'mid' in col]
-            if len(int_mid) == 1:
-                
-                scale = int_mid[0].split('_')[-1].lower()
-                format = 'mjd'
-        
-        time = Time(t[int_mid[0]].data, format=format, scale=scale)
-
-    else:
-        # TODO: Create the Time object from the exposure time only
-        pass
-    
-    #Data 
-    # x1dints   
-    if 'EXTRACT1D' in tinfo['Name']:
-        # subdictionary related to time that we want to have in meta for every table
-        hdr_time = dict(filter(lambda i:i[0] in ts_keys, hdr.items())) 
-        mask = tinfo['Name'] == 'EXTRACT1D'
-        extver = tinfo['Ver'][mask].data.tolist()
-        data = []
-        for ver in extver:
-            tab = Table.read(filename, hdu=("EXTRACT1D", ver))
-            # propagate time information from the primary to all extract1d
-            tab.meta.update(hdr_time)
-            data.append(tab)
-    # rateints
-    elif 'SCI'in tinfo['Name']:
-        # It is a rateints so the Type is ImageHDU and that is a cube to inspect in slices dimension?
-        # TODO: Consult with Javier as this may be the handshake to cubeviewer.
-        pass
-    
-    
-    '''    if hdu.header['EXTVER'] > 1:
-        raise NotImplementedError("Support for {0} v{1} files not yet "
-                                  "implemented".format(hdu.header['TELESCOP'], hdu.header['EXTVER']))
-
-    # Check time scale
-    if hdu.header['TIMESYS'] != 'TDB':
-        raise NotImplementedError("Support for {0} time scale not yet "
-                                  "implemented in {1} reader".format(hdu.header['TIMESYS'], hdu.header['TELESCOP']))
-
-    tab = Table.read(hdu, format='fits')
-
-    # Some KEPLER files have a T column instead of TIME.
-    if "T" in tab.colnames:
-        tab.rename_column("T", "TIME")
-
-    for colname in tab.colnames:
-        # Fix units
-        if tab[colname].unit == 'e-/s':
-            tab[colname].unit = 'electron/s'
-        if tab[colname].unit == 'pixels':
-            tab[colname].unit = 'pixel'
-
-        # Rename columns to lowercase
-        tab.rename_column(colname, colname.lower())
-
-    # Filter out NaN rows
-    nans = np.isnan(tab['time'].data)
-    if np.any(nans):
-        warnings.warn('Ignoring {0} rows with NaN times'.format(np.sum(nans)))
-    tab = tab[~nans]
-
-    # Time column is dependent on source and we correct it here
-    reference_date = Time(hdu.header['BJDREFI'], hdu.header['BJDREFF'],
-                          scale=hdu.header['TIMESYS'].lower(), format='jd')
-    time = reference_date + TimeDelta(tab['time'].data)
-    time.format = 'isot'
-
-    # Remove original time column
-    tab.remove_column('time')'''
+            # raise NotImplementedError("{} is not implemented, only JWST is "
+            #                       "supported through this reader".format(telescop))
     
     #TODO: Deal with masked data 
-    #TODO: Harmonize time as list of Times
 
-    return time, data
+    return times, data
 
 
 # registry.register_reader('jwst.fits', TimeSeries, ts_fits_reader)
@@ -155,6 +149,16 @@ if __name__ == '__main__':
     delta = end_time - start_time
     print('Time to execute app is {} seconds'.format(delta.total_seconds()))
     
+    from datetime import datetime
+    start_time = datetime.now()
+    
+    filename = 'chandra_time.fits'
+    time, data = ts_fits_reader(os.path.join(DATADIR, filename))
+    
+    end_time = datetime.now()
+    delta = end_time - start_time
+    print('Time to execute app is {} seconds'.format(delta.total_seconds()))
+
     
     import requests,io, gzip
     import tempfile

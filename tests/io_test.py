@@ -11,7 +11,7 @@ from astropy.time import Time
 
 from tsview import DATADIR
 from tsview.io.fits_parser import ts_fits_reader
-from tsview.io.vo_parser import locate_time_column, to_jd, ts_votable_reader
+from tsview.io.vo_parser import locate_time_column, col_to_jd, ts_votable_reader
 from astropy.io.votable.table import is_votable
 
 def test_fits_parser():
@@ -134,7 +134,7 @@ def test_vo_parser():
     time = Time(t, scale=timesystems.timescale.lower(),format='jd')
     print(dir(times_meta))
     # this tests the Column and MaskedColumn functionality of to_jd function
-    time_fto_jd = to_jd(time, times_meta)
+    time_fto_jd = col_to_jd(t, times_meta)
     
     assert len(time) == rows_expected
     assert time.format == 'jd'
@@ -170,7 +170,12 @@ def test_vo_parser():
     2450000.00189799, 2450000.00285799, 2450000.00269799, 2450000.00253799,
     2450000.00237799, 2450000.00317799, 2450000.00333799, 2450000.00349799]
     
-
+    time_fto4_expected = [2450000.0098859 , 2450000.00972519, 2450000.00956448,
+    2450000.00956448, 2450000.00956448, 2450000.00956448,
+    2450000.01020367, 2450000.01020367, 2450000.01036438,
+    2450000.01052509, 2450000.0106858 , 2450000.01036438,
+    2450000.01052509, 2450000.0106858 , 2450000.0106858 ,
+    2450000.01052509, 2450000.01036438, 2450000.01020367]
 
     times, data = ts_votable_reader(vot)
     
@@ -183,7 +188,9 @@ def test_vo_parser():
     assert times[2].scale == 'tt'
     assert np.array(time_fto3_expected) == pytest.approx(times[3].value)
     assert times[3].scale == 'utc'
-    
+    assert np.array(time_fto4_expected) == pytest.approx(times[4].value)
+    assert times[4].scale == 'tcg'
+   
     # test ts_fits_reader with Gaia file
     pass
 

@@ -106,6 +106,44 @@ def to_jd(times, times_meta):
 
     return times
 
+def col_to_jd(times, times_meta):
+    """returns Time given in JD, the carrier is a table column, considering the timeorigin.
+
+    This is where we use FIELD metadata, TIMESYS/@timeorigin and 
+    TIMESYS/@timescale
+    """
+    try:
+        astropy_scale =TIMESYS_SCALES_TO_ASTROPY[times_meta["timescale"]]
+    except KeyError:
+        raise Exception("Unsupported timescale: %s"%times_meta["timescale"])
+
+    if "timeorigin" not in times_meta:
+        
+        if times.dtype=='O': 
+            times = Time(times.astype(str), format="isot", scale=astropy_scale)
+            times.format = 'jd'
+
+        else:
+            # in VOTable, these must be julian or besselian years
+            if times.unit not in ["yr", "byr"]:
+                raise Exception("Floats without timeorigin only allowed when"
+                    " unit is year.")
+            else:    
+                times = Time(times, 
+                    format={"yr": "jyear", "byr": "byear"}[str(times.unit)],
+                    scale=astropy_scale)
+                times.format = 'jd'
+
+    else:
+        if not isinstance(times_meta["timeorigin"], str):
+            times = Time(times.to(units.d)+times_meta["timeorigin"]*units.d,
+                         format="jd", scale=astropy_scale)
+            times.format = 'jd'
+        else:
+            times = Time(times.to(units.d)+MAGIC_TIMEORIGINS.get(times_meta["timeorigin"])*units.d,
+                         format="jd", scale=astropy_scale)
+
+    return times
 
 
 def ts_votable_reader(vot):
@@ -144,12 +182,7 @@ def ts_votable_reader(vot):
             t = locate_time_column(table, times_meta)
             print(t.unit)
 
-            if t.dtype=='O': 
-                tt = Time(t.astype(str), format="isot", scale=astropy_scale)
-            else:
-                #{"yr": "jyear", "byr": "byear", "d": "jd"}[str(t.unit)]
-                tt = Time(t, format='jd', scale=astropy_scale)
-            tt = to_jd(tt, times_meta)
+            tt = col_to_jd(t, times_meta)
 
             tbl = table.to_table()                 
             if times_meta['ID'] in tbl.colnames:

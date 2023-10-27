@@ -134,9 +134,13 @@ if __name__ == '__main__':
     times = Time(t, scale=timesystems.timescale.lower(),format='jd')
     print(dir(times_meta))
     print(times.value)
-    times2 = to_jd(times, times_meta)
+    times2 = to_jd(t, times_meta)
     print(times2.value)
     #times = to_tcb_barycenter(times, times_meta, obs_location)
 
     apy_table = time_series.to_table()
+    
+    vot = votable.parse("/Users/epuga/ESDC/TSViz/tsview/tsview/example_data/votable_simple_example.xml")
+    print(len(vot.resources))
+    pass
 
