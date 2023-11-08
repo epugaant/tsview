@@ -8,6 +8,7 @@ from astropy.table import Table
 from astropy.time import Time, TimeDelta
 
 from tsview import DATADIR
+from tsview.utils.timer import timer_func
 
 __all__ = ["ts_fits_reader"]
 
@@ -59,7 +60,7 @@ def extract1d_to_timeseries(filename, hdr, tinfo, ts_keys, scale=None, array_int
 
     return times, data
 
-
+@timer_func
 def ts_fits_reader(filename):
     """
     This serves as the FITS reader time series files within tsview. Based on kepler_fits_reader from astropy-timeseries. 
@@ -120,11 +121,12 @@ def ts_fits_reader(filename):
             times, data = [], []
             tbl = Table.read(filename, format='fits', astropy_native=True)
             if any(isinstance(col, Time) for col in tbl.itercols()):
-              for i, col in enumerate(tbl.itercols()): 
-                   if isinstance(col, Time):
-                       break
-            times.append(col)
-            tbl.remove_column(tbl.colnames[i])
+                for i, col in enumerate(tbl.itercols()): 
+                    if isinstance(col, Time):
+                        break
+                col.format = 'jd'
+                times.append(col)
+                tbl.remove_column(tbl.colnames[i])
             data.append(tbl)
         
             # raise NotImplementedError("{} is not implemented, only JWST is "
@@ -139,31 +141,15 @@ def ts_fits_reader(filename):
 
 if __name__ == '__main__':
     
-    from datetime import datetime
-    start_time = datetime.now()
-    
     filename = 'jw02783-o002_t001_miri_p750l-slitlessprism_x1dints.fits'
     time, data = ts_fits_reader(os.path.join(DATADIR, filename))
     
-    end_time = datetime.now()
-    delta = end_time - start_time
-    print('Time to execute app is {} seconds'.format(delta.total_seconds()))
     
-    from datetime import datetime
-    start_time = datetime.now()
     
-    filename = 'chandra_time.fits'
-    time, data = ts_fits_reader(os.path.join(DATADIR, filename))
     
-    end_time = datetime.now()
-    delta = end_time - start_time
-    print('Time to execute app is {} seconds'.format(delta.total_seconds()))
-
     
     import requests,io, gzip
     import tempfile
-    
-    start_time = datetime.now()
     
     tap_server = 'https://jwst.esac.esa.int/server/tap/sync'
     q = 'SELECT a.artifactid FROM  jwst.artifact AS a  WHERE a.uri LIKE \'%{0}%.fits\' AND a.uri LIKE \'%{1}%\' ORDER BY a.filename DESC'.format('x1dints','jw02783-o002_t001_miri_p750l-slitlessprism')
@@ -188,6 +174,3 @@ if __name__ == '__main__':
             if os.path.exists(fp.name):
                 time, data = ts_fits_reader(fp.name)
     
-    end_time = datetime.now()
-    delta = end_time - start_time
-    print('Time to execute app is {} seconds'.format(delta.total_seconds()))

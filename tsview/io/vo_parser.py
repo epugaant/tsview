@@ -16,6 +16,8 @@ from astropy import table
 from astropy import units
 from astropy.time import Time
 
+from tsview.utils.timer import timer_func
+
 MAGIC_TIMEORIGINS = {
   "MJD-origin": 2400000.5,
   "JD-origin": 0,
@@ -145,7 +147,7 @@ def col_to_jd(times, times_meta):
 
     return times
 
-
+@timer_func
 def ts_votable_reader(vot):
     '''Function to parse votable filename or VOTable into Time and data Table objects. The function deals with multiple resources returning two lists '''
     

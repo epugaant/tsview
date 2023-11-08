@@ -64,16 +64,16 @@ def test_fits_parser():
         assert truth == pytest.approx(meas)
     
 
-    # test time values
+    # test time values in mjd
     time_expected = ([59989.97705226, 59989.9772382 , 59989.97742414, 59989.97761009,
        59989.97779603, 59989.97798198, 59989.97816792, 59989.97835386,
        59989.97853981, 59989.97872575])
     rows_expected = 10
     time, data = ts_fits_reader(os.path.join(DATADIR, filename))
     assert len(time) == rows_expected
-    assert time.format == 'mjd'
-    assert time.scale == 'tdb'
-    assert np.array(time_expected) == pytest.approx(time.value)
+    assert time[0].format == 'mjd'
+    assert time[0].scale == 'tdb'
+    assert np.array(time_expected) == pytest.approx([t.value for t in time])
     # data values test
     assert isinstance(data, list)
     assert len(data) == rows_expected 
@@ -84,6 +84,16 @@ def test_fits_parser():
     assert data[0]['FLUX'].mask[0] == False
     assert data[0]['FLUX'].unit == u.Unit("Jy")
  
+    #test chandra fits
+    filename = 'chandra_time.fits'
+    time_expected = ([2457414.26033393, 2457414.2603339287])
+    rows_expected = 1
+    time, data = ts_fits_reader(os.path.join(DATADIR, filename))
+    assert len(time) == rows_expected
+    assert time[0].format == 'mjd'
+    assert time[0].scale == 'tt'
+    assert np.array(time_expected) == pytest.approx(time[0].jd)
+    
      # test #3 loading rateints
 
 def test_vo_parser():
