@@ -84,7 +84,7 @@ def test_fits_parser():
     assert data[0]['FLUX'].mask[0] == False
     assert data[0]['FLUX'].unit == u.Unit("Jy")
  
-    #test chandra fits
+    #test chandra time values in jd
     filename = 'chandra_time.fits'
     time_expected = ([2457414.26033393, 2457414.2603339287])
     rows_expected = 1

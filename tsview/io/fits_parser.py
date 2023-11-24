@@ -76,7 +76,7 @@ def ts_fits_reader(filename):
 
     Returns
     -------
-    `astropy.time.Time` and list of `astropy.table.QTable`
+    list of `astropy.time.Time` and list of `astropy.table.QTable`
         time object and data for time series
 
     """

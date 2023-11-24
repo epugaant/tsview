@@ -45,8 +45,15 @@ def locate_time_column(table, times_meta):
             break
     else:
         raise Exception("No column referencing a TIMESYS found")
-
-    return table.to_table().columns[col_index]
+    
+    # sanitize table rows
+    tbl = table.to_table()
+    tbl.remove_rows(tbl['time'].mask.nonzero()[0])
+    rej_cols = [c for c in tbl.colnames if 'rej' in c]
+    if len(rej_cols) > 1:
+        for col in rej_cols: tbl.remove_rows(tbl[col].value.nonzero()[0])
+            
+    return tbl.columns[col_index], tbl
 
 def to_jd(times, times_meta):
     """returns Time given in JD, for Time instances and table columns, considering the timeorigin.
@@ -174,19 +181,19 @@ def ts_votable_reader(vot):
     # Flatten down all tables
     for resource in vot.resources:
         for i, table in enumerate(resource.tables):
+            
             timesystems = resource.time_systems[i] # only element in a HomogeneousList, that contains dictionaries
             print(timesystems)
             times_meta = {key: getattr(timesystems, key) for key in timesystems._attr_list if getattr(timesystems, key) is not None} 
             
             astropy_scale = TIMESYS_SCALES_TO_ASTROPY[times_meta["timescale"]]
 
-            # just extract the times MaskedColumn
-            t = locate_time_column(table, times_meta)
+            # extract the times MaskedColumn and the sanitized astropy.table.Table
+            t, tbl = locate_time_column(table, times_meta)
             print(t.unit)
 
             tt = col_to_jd(t, times_meta)
-
-            tbl = table.to_table()                 
+                
             if times_meta['ID'] in tbl.colnames:
                 tbl.remove_column(times_meta['ID'])
             
