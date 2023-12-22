@@ -1,4 +1,4 @@
-from astropy.table import Table
+from astropy.table import Table, Column
 import numpy as np
 import astropy.units as u
 from synphot import units
@@ -23,7 +23,7 @@ def create_mod_column_using_index(tbl, cid, colname, new_colname, expr, func):
     orig_unit = tbl[colname].unit
     key_indices = {}
     for key in tbl.group_by(cid).groups.keys:
-        print(key)
+        print(key[cid])
         indx = tbl.loc_indices[key[cid]]
         #Astropy User Guide recommendation to modify Table using table[column][row] order
         target =  glom.glom(gaia, expr.format(key[cid]))
@@ -41,7 +41,7 @@ def col_from_index(tbl, colname,  cid,  expr):
     tbl.add_index(cid)
     tbl[colname] = np.nan
     for key in tbl.group_by(cid).groups.keys:
-        print(key)
+        print(key[cid])
         indx = tbl.loc_indices[key[cid]]
         #Astropy User Guide recommendation to modify Table using table[column][row] order
         target =  glom.glom(gaia, expr.format(key[cid]))
@@ -53,68 +53,90 @@ def col_from_index(tbl, colname,  cid,  expr):
     return col
 
 def main():        
-    t = Table([['G', 'RP'], [3, 4], [5, 6]], names=('band', 'b', 'c'))
-    t['c'].unit = "electron/s"
-    
-    #t_mod = create_mod_column_using_index(t, 'band', 'c', 'c_new')
-    #print(t_mod)
+    # t = Table([['G', 'RP'], [3, 4], [5, 6]], names=('band', 'b', 'flux'))
+    # t['flux'].unit = "electron/s"
+    band = ['BP', 'G', 'RP']
+    mag = [12.751842803737022, 12.415125851786478, 11.902541753829738] * u.mag
+    flux = [108312.79547960439, 203655.62323629577, 137448.97291377262] * u.electron/u.s
+    flux_error = [181.4765160322774, 76.00599243480103, 183.6823434658511] * u.electron/u.s
+    t = Table([band, mag, flux, flux_error], names=('band', 'mag', 'flux', 'flux_error'))
 
-    orig_unit = u.Unit( "electron/s") #u.Unit("count/s")
-    target_unit = u.mJy
-    sys = 'AB'
-    zpt = 'zp'
     
+    #t_mod = create_mod_column_using_index(t, 'band', 'flux', 'flux_new')
+    #print(t_mod)
+    flux_col = 'flux'
+    flux_col_new = flux_col+'_new'
+    #orig_unit = u.Unit( "electron/s") #u.Unit("count/s")
+    orig_unit = t[flux_col].unit
+    target_unit = u.mJy
+    sys = 'VEGAMAG'
+    zpt = 'zp' # None if there is no zpt
+    
+    flux_col = 'mag'
+    flux_col_new = flux_col+'_new'
+    #orig_unit = u.Unit( "electron/s") #u.Unit("count/s")
+    orig_unit = t[flux_col].unit
+    target_unit = u.mJy
+    sys = 'VEGAMAG'
+    zpt = 'f_zp_nu' # None if there is no zpt
+
+    if orig_unit.is_equivalent(u.mag):
+        orig_unit = u.mag()
+        
     # No conversion necessary
     if orig_unit == target_unit:
-        return t['c']
+        return t[flux_col]
     
     # orig_unit (electron/s; count/s)------ zp_unit (mag)
-    if orig_unit.physical_type == 'unknown' and all(isinstance(x.unit, u.MagUnit) for x in glom.glom(gaia, '**.{0}.{1}'.format(sys, zpt))):
-        #Initialize column with given value
-        t['c_new'] = u.Magnitude(t['c'].quantity)
-        expr = '**.{{}}.**.{0}.**.{1}'.format(sys, zpt)
-        key_indices = create_mod_column_using_index(t, 'band', 'c_new', 'c_new', expr, add)
-    
     # orig_unit (&mag) --- zp_unit (Jy)
-    if orig_unit.physical_type == 'spectral flux density' and isinstance(orig_unit, u.MagUnit) and not all(isinstance(x.unit, u.MagUnit) for x in glom.glom(gaia, '**.{0}.{1}'.format(sys, zpt))): 
-        #Initialize column with given value
-        t['c_new'] = u.Dex(-0.4*t['c'].quantity).physical #this is just a quantity
-        expr = '**.{{}}.**.{0}.**.{1}'.format(sys, zpt)
-        key_indices = create_mod_column_using_index(t, 'band', 'c_new', 'c_new', expr, multiply)
+    if zpt:
+        if orig_unit.physical_type in ('unknown', 'dimensionless'):
+            if isinstance(orig_unit, u.MagUnit):
+                #Initialize column with given value
+                t[flux_col_new] = u.Dex(-0.4*t[flux_col].value).physical #this is just a quantity
+            else:
+                #Initialize column with given value
+                t[flux_col_new] = u.Magnitude(t[flux_col].quantity)
+            #check now zp_unit
+            expr = '**.{{}}.**.{0}.**.{1}'.format(sys, zpt) # escaped for key=band
+            if all(isinstance(x.unit, u.MagUnit) for x in glom.glom(gaia, '**.{0}.{1}'.format(sys, zpt))):
+                key_indices = create_mod_column_using_index(t, 'band', flux_col_new, flux_col_new, expr, add)
+            else:
+                key_indices = create_mod_column_using_index(t, 'band', flux_col_new, flux_col_new, expr, multiply)
+    else:
+        print('No zeropoint step. Directly goint to conversion')
     
     wave = col_from_index(t, 'wave', 'band', '**.{{}}.**.{0}.**.{1}'.format('AB', 'lamb'))
-    if not isinstance(wave, u.Quantity):
-        wave = wave * u.AA
+    # if not isinstance(wave, (Column, u.Quantity)):
+    #     wave = wave * u.AA
     eqv = u.spectral_density(wave)
         
-    #convert unit
+    #convert unit from intermediate zp_unit to target_unit
     try:
-        t['c_new'] = t['c_new'].to(target_unit, eqv)
-        pass
+        t[flux_col_new] = t[flux_col_new].to(target_unit, eqv)
+        print(t)
     except u.core.UnitConversionError:
-        
-        if t['c_new'].unit == units.VEGAMAG:
+        #TODO: I could simplify the fist try wihouth equivalencies and move the wavelength in here
+        if t[flux_col_new].unit == units.VEGAMAG or target_unit == units.VEGAMAG:
             vega = SourceSpectrum.from_vega()  # For unit conversion  
-            t['c_new'].quantity = units.convert_flux(wave.quantity, t['c_new'].quantity, target_unit, vegaspec=vega)
+            t[flux_col_new] = units.convert_flux(wave.quantity, t[flux_col_new].quantity, target_unit, vegaspec=vega)
         else:
-            t['c_new'].quantity = units.convert_flux(wave.quantity, t['c_new'].quantity, target_unit) 
-        return t['c_new']
+            t[flux_col_new] = units.convert_flux(wave.quantity, t[flux_col_new].quantity, target_unit) 
+        print(t)
+        return t[flux_col_new]
+    
+    
         
 if __name__ == '__main__':
     main()
-    glomexpr='**.{0}.**.{1}.**.{2}'.format((key, system, field))
-    target= glom.glom(gaia, glomexpr)
-    [val] = glom.flatten(target, levels=2)
-    #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
-    df2 = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
+    # glomexpr='**.{0}.**.{1}.**.{2}'.format((key, system, field))
+    # target= glom.glom(gaia, glomexpr)
+    # [val] = glom.flatten(target, levels=2)
+    # #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
+    # df2 = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
 
     pass
 
 
-band = ['BP', 'G', 'RP']
-mag = [12.751842803737022, 12.415125851786478, 11.902541753829738] * u.mag
-flux = [108312.79547960439, 203655.62323629577, 137448.97291377262] * u.electron/u.s
-flux_error = [181.4765160322774, 76.00599243480103, 183.6823434658511] * u.electron/u.s
-t = Table([band, mag, flux, flux_error], names=('band', 'mag', 'flux', 'flux_error'))
 
 
