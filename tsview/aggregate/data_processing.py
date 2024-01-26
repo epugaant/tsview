@@ -1,22 +1,27 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
 
 import glom
 import numpy as np
 
 from astropy.time import Time
-from astropy.table import Table
+from astropy.table import Table, QTable
 import astropy.units as u
+from astropy.units import Quantity
 from synphot import units
 from synphot.spectrum import SourceSpectrum
 
 
-gaia = {
+DATA_DICT = {
+'gaia': {
     'zeropt': {'G': {'VEGAMAG': {'zp': 25.6873668671 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0027553202* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 6217.51 * u.AA, 'f_zp_nu': 3228.75 * u.Jy}, 'AB': {'zp': 25.8010446445 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0027590522 * u.Unit("mag(AB s/electron)"), 'lamb': 6217.51 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
         'BP': {'VEGAMAG': {'zp': 25.3385422158 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0027901700* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 5109.71 * u.AA, 'f_zp_nu': 3552.01 * u.Jy}, 'AB': {'zp': 25.3539555559 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0023065687 * u.Unit("mag(AB s/electron)"), 'lamb': 5109.71 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
         'RP': {'VEGAMAG': {'zp': 24.7478955012 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0037793818* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 7769.02 * u.AA, 'f_zp_nu': 2554.95 * u.Jy}, 'AB': {'zp': 25.1039837393 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0015800349 * u.Unit("mag(AB s/electron)"), 'lamb': 7769.02 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
         },
     'graphic': {'y': {'colname': 'flux', 'units': 'electron/s'},
-              'y_err': {'colname': 'flux_error', 'units': 'electron/s'}}    
+              'y_err': {'colname': 'flux_error', 'units': 'electron/s'},
+              'cid': 'band' }    
+        }
 }
 
 def column_from_dict_index(tbl, cid, data_dict, expr_dict):
@@ -146,40 +151,75 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid='band', zpt=None, target_
             return (f)
 
 @dataclass
-class UnitHarmonizer:
-    format_ref: str
-    scale_ref: str
-    ref_data: str
-    ref_data_unit: str = 'FLUX'
+class TimeSeries:
+    time: Quantity
+    flux: Quantity
+    flux_error: Quantity|None = field(intit=False)
+    time_format: str
+    data_unit: u
+    cid:  str|None = field(intit=False)
+    
+    def __repr__(self):
+        newt = QTable([self.time, self.flux, self.flux_error], names=['time', 'flux', 'flux_error'])
+        if self.cid:
+            newt.add_column(t['band'])
 
-#lists of times MaskedColumn and the sanitized astropy.table.Table
-class DataProcess(object):
-    '''
-    Time series data aggregator and harmonizer class 
-    list of `astropy.time.Time` and list of `astropy.table.QTable` per resource(votable) or extver(hdulist)
-    '''
-    def __init__(self, time_collection, table_collection, time_unit_ref=0, y_unit_ref=0):
-        # Attribute definition for plotting data state
-        self.time_collection = time_collection
-        self.table_collection = table_collection
-        self.time_unit_ref = time_unit_ref
-        self.y_unit_ref = y_unit_ref
-    def time_to_unit(time_list, colnames):
-        '''Method to recursively convert to reference time format'''
-    def y_column_list(table_collection, colnames):
-        '''Method to select y_column and y_err_column in each element of a list'''
-        y_data = [tbl.keep_columns(colnames) for tbl in table_collection]
-        return y_data
-    def to_unit(y_collection, err_y_collection, y_colname='flux', err_y_colname='flux_error'):
-        '''Method to convert data column to reference unit equivalency
-        Ref: jdaviz https://github.com/spacetelescope/jdaviz/blob/main/jdaviz/app.py UnitConverterWithSpectra class'''
-        
+#lists of Times and the sanitized astropy.table.Table
+@dataclass
+class DataProcess:
+    mission: str
+    time_collection: list[Time]
+    table_collection: list[Table]
+    #time_ref_format: str = field(init=False)
+    #time_ref_scale: str = field(init=False)
+    system: str
+    time_target_format: str
+    #data_orig_unit: u = field(init=False)
+    data_target_unit: u = field(default= u.mJy)
+    cid: str|None = field(init=False)
+    y_colname: str = field(init=False)
+    err_y_colname: str|None = field(init=False)
+    timeseries: list[TimeSeries] = field(default_factory=list, init=False)
+    
+    def __post_init__(self):
+        graphic_dict =  DATA_DICT[self.mission]['graphic']
+        [self.cid] = glom.glom(graphic_dict, '**.cid')
+        [self.y_colname] = glom.glom(graphic_dict, '**.y.colname')
+        if glom.glom(graphic_dict, '**.y_err.colname'):
+            [self.err_y_colname] = glom.glom(graphic_dict, '**.y_err.colname')
+        if self.err_y_colname:
+            self.timeseries = [TimeSeries(time, table[self.y_colname], table[self.err_y_colname], time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+        else:
+            self.timeseries = [TimeSeries(time, table[self.y_colname], time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
 
-    def group_by_index():
+     
+    def convert_time(self, target_unit):
+        for i in range(self.timeseries):
+            if self.timeseries[i].time_format != target_unit:
+                self.timeseries[i].time_format = target_unit
+
+    def convert_flux(self, target_unit):
+        zpt_dict = DATA_DICT[self.mission]['zeropt']
+        for i in range(self.timeseries):
+            if self.timeseries[i].data_unit != target_unit:
+                if self.err_y_colname:
+                    self.timeseries[i].flux, self.timeseries[i].flux_error = self.data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
+                else:
+                    self.timeseries[i].flux = self.data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit)
+
+    def group_by_index(cid):
         '''Method to re-structure data by index ['band', 'instrument']'''
 
     
 if __name__ == '__main__':
 
-SYSTEM = 'VEGAMAG'
-(f, ef) = data_convert_unit(table, 'flux', gaia, 'VEGAMAG', cid='band', target_unit=u.mJy, fluxe_col='flux_error')
+    tbl = Table.read('/Users/epuga/ESDC/TSViz/data/gaia/anonymous1690191210843_fits/EPOCH_PHOTOMETRY-Gaia DR3 4057091150787104896.fits', astropy_native=True)
+    df = tbl.to_pandas()
+    #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
+
+    d = DataProcess(time, tbl, system, target_time_unit, target_flux_unit, cid)
+    newt= QTable([time, f, ef], names=['time', 'flux', 'flux_error'])
+    newt= QTable([time.jd, f, ef], names=['time', 'flux', 'flux_error'])
+    newt.add_column(t['band'])
+    df = newt.to_pandas()
+    df2 = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
