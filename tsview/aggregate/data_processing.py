@@ -11,6 +11,8 @@ from astropy.units import Quantity
 from synphot import units
 from synphot.spectrum import SourceSpectrum
 
+import pandas as pd
+
 
 DATA_DICT = {
 'gaia': {
@@ -95,8 +97,8 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid='band', zpt=None, target_
                     return []
                 if fluxe_col in t.colnames:
                     minst, eminst = fluxErrToMag(t[flux_col].quantity, t[fluxe_col].quantity)
-                    if glom.glom(gaia, '**.e_zP'):
-                        e_zp = column_from_dict_index(t, 'band', gaia, '**.{{}}.**.{0}.**.{1}'.format('VEGAMAG', 'e_zP'))
+                    if glom.glom(data_dict, '**.e_zP'):
+                        e_zp = column_from_dict_index(t, 'band', data_dict, '**.{{}}.**.{0}.**.{1}'.format('VEGAMAG', 'e_zP'))
                         em = np.sqrt(eminst.value**2+ e_zp.value**2) * minst.unit # No astropy unit can do addition in quadrature
                     else:
                         em = eminst
@@ -135,8 +137,8 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid='band', zpt=None, target_
                 f = units.convert_flux(wave.quantity, msys, target_unit, vegaspec=vega)
                 if fluxe_col in t.colnames:
                     _, eminst = fluxErrToMag(t[flux_col].quantity, t[fluxe_col].quantity)
-                    if glom.glom(gaia, '**.e_zP'):
-                        e_zp = column_from_dict_index(t, 'band', gaia, '**.{{}}.**.{0}.**.{1}'.format('VEGAMAG', 'e_zP'))
+                    if glom.glom(data_dict, '**.e_zP'):
+                        e_zp = column_from_dict_index(t, 'band', data_dict, '**.{{}}.**.{0}.**.{1}'.format('VEGAMAG', 'e_zP'))
                         em = np.sqrt(eminst.value**2+ e_zp.value**2) * minst.unit # No astropy unit can do addition in quadrature
                     else:
                         em = eminst
@@ -154,15 +156,27 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid='band', zpt=None, target_
 class TimeSeries:
     time: Quantity
     flux: Quantity
-    flux_error: Quantity|None = field(intit=False)
+    flux_error: Quantity|None 
+    cid_col : np.ndarray|None 
     time_format: str
     data_unit: u
-    cid:  str|None = field(intit=False)
+    cid:  str|None 
     
-    def __repr__(self):
-        newt = QTable([self.time, self.flux, self.flux_error], names=['time', 'flux', 'flux_error'])
+    def create_dataframe(self):
+        '''This method composes the output pandas DataFrame'''
+        if len(self.flux) == len(self.time):
+            t = QTable([self.time, self.flux, self.flux_error], names=['time', 'flux', 'flux_error'])
+        else:
+            t = QTable([self.flux, self.flux_error], names=['flux', 'flux_error'])
+            t['time'] = self.time
+        df = t.to_pandas()
+        #include cid column in pandas df
         if self.cid:
-            newt.add_column(t['band'])
+            df[self.cid] = self.cid_col
+            df_g = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'})
+            return df_g
+        else:
+            return df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'})
 
 #lists of Times and the sanitized astropy.table.Table
 @dataclass
@@ -173,53 +187,81 @@ class DataProcess:
     #time_ref_format: str = field(init=False)
     #time_ref_scale: str = field(init=False)
     system: str
-    time_target_format: str
-    #data_orig_unit: u = field(init=False)
-    data_target_unit: u = field(default= u.mJy)
     cid: str|None = field(init=False)
+    time_format: str = field(init=False)
+    #data_orig_unit: u = field(init=False)
+    data_unit: u = field(default= u.mJy, init=False)
     y_colname: str = field(init=False)
     err_y_colname: str|None = field(init=False)
     timeseries: list[TimeSeries] = field(default_factory=list, init=False)
     
     def __post_init__(self):
         graphic_dict =  DATA_DICT[self.mission]['graphic']
-        [self.cid] = glom.glom(graphic_dict, '**.cid')
+        try:
+            [self.cid] = glom.glom(graphic_dict, '**.cid')
+        except:
+            self.cid = None
         [self.y_colname] = glom.glom(graphic_dict, '**.y.colname')
-        if glom.glom(graphic_dict, '**.y_err.colname'):
+        try:
             [self.err_y_colname] = glom.glom(graphic_dict, '**.y_err.colname')
+        except:
+            self.err_y_colname = None
         if self.err_y_colname:
-            self.timeseries = [TimeSeries(time, table[self.y_colname], table[self.err_y_colname], time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+            if self.cid:
+                self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, table[self.err_y_colname].quantity, table[self.cid].value, time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+            else:
+                self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, table[self.err_y_colname].quantity, time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
         else:
-            self.timeseries = [TimeSeries(time, table[self.y_colname], time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
-
+            if self.cid:
+                self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, table[self.cid].value, time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+            else:
+                self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, time.format, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
+        self.time_format = self.time_collection[-1].format
+        self.data_unit = self.table_collection[-1][self.y_colname].unit
      
     def convert_time(self, target_unit):
-        for i in range(self.timeseries):
+        for i in range(len(self.timeseries)):
             if self.timeseries[i].time_format != target_unit:
                 self.timeseries[i].time_format = target_unit
 
     def convert_flux(self, target_unit):
         zpt_dict = DATA_DICT[self.mission]['zeropt']
-        for i in range(self.timeseries):
+        for i in range(len(self.timeseries)):
             if self.timeseries[i].data_unit != target_unit:
                 if self.err_y_colname:
-                    self.timeseries[i].flux, self.timeseries[i].flux_error = self.data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
+                    self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
                 else:
-                    self.timeseries[i].flux = self.data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit)
+                    self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit)
 
-    def group_by_index(cid):
+    def __repr__(self):
+        '''Method to compose the representation as json'''
+        df_to_export = pd.DataFrame([timeseries.create_dataframe() for timeseries in self.timeseries])
+        if self.cid:
+            return df_to_export.to_json(orient='index')
+        else:
+            return df_to_export.to_json()
         '''Method to re-structure data by index ['band', 'instrument']'''
 
     
 if __name__ == '__main__':
 
     tbl = Table.read('/Users/epuga/ESDC/TSViz/data/gaia/anonymous1690191210843_fits/EPOCH_PHOTOMETRY-Gaia DR3 4057091150787104896.fits', astropy_native=True)
-    df = tbl.to_pandas()
+    if tbl['flux'].unit == "'electron'.s**-1":
+        tbl['flux'].unit = "electron/s"
+    if tbl['flux_error'].unit == "'electron'.s**-1":
+        tbl['flux_error'].unit = "electron/s"
     #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
 
-    d = DataProcess(time, tbl, system, target_time_unit, target_flux_unit, cid)
+    d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB') 
+    d.convert_time('mjd')
+    d.convert_flux(u.mJy)
+    print(repr(d))    
+    
     newt= QTable([time, f, ef], names=['time', 'flux', 'flux_error'])
     newt= QTable([time.jd, f, ef], names=['time', 'flux', 'flux_error'])
     newt.add_column(t['band'])
     df = newt.to_pandas()
     df2 = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
+    
+    df_to_export = pd.DataFrame(list_df)
+    json_output = df_to_export.to_json()
