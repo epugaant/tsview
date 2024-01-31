@@ -12,6 +12,7 @@ from synphot import units
 from synphot.spectrum import SourceSpectrum
 
 import pandas as pd
+import json
 
 
 DATA_DICT = {
@@ -163,7 +164,7 @@ class TimeSeries:
     cid:  str|None 
     
     def create_dataframe(self):
-        '''This method composes the output pandas DataFrame'''
+        '''This method composes the output pandas DataFrame to a json representation'''
         if len(self.flux) == len(self.time):
             t = QTable([self.time, self.flux, self.flux_error], names=['time', 'flux', 'flux_error'])
         else:
@@ -173,10 +174,10 @@ class TimeSeries:
         #include cid column in pandas df
         if self.cid:
             df[self.cid] = self.cid_col
-            df_g = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'})
+            df_g = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
             return df_g
         else:
-            return df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'})
+            return df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json()
 
 #lists of Times and the sanitized astropy.table.Table
 @dataclass
@@ -184,12 +185,9 @@ class DataProcess:
     mission: str
     time_collection: list[Time]
     table_collection: list[Table]
-    #time_ref_format: str = field(init=False)
-    #time_ref_scale: str = field(init=False)
     system: str
     cid: str|None = field(init=False)
     time_format: str = field(init=False)
-    #data_orig_unit: u = field(init=False)
     data_unit: u = field(default= u.mJy, init=False)
     y_colname: str = field(init=False)
     err_y_colname: str|None = field(init=False)
@@ -219,7 +217,7 @@ class DataProcess:
         self.time_format = self.time_collection[-1].format
         self.data_unit = self.table_collection[-1][self.y_colname].unit
      
-    def convert_time(self, target_unit):
+    def convert_time(self, target_unit): #perhaps a dataclass_transform
         for i in range(len(self.timeseries)):
             if self.timeseries[i].time_format != target_unit:
                 self.timeseries[i].time_format = target_unit
@@ -232,14 +230,9 @@ class DataProcess:
                     self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
                 else:
                     self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit)
-
-    def __repr__(self):
-        '''Method to compose the representation as json'''
-        df_to_export = pd.DataFrame([timeseries.create_dataframe() for timeseries in self.timeseries])
-        if self.cid:
-            return df_to_export.to_json(orient='index')
-        else:
-            return df_to_export.to_json()
+    
+    def to_json(self) -> str:
+        return json.dumps(dict(zip(list(str(x) for x in range(len(self.timeseries))), [timeseries.create_dataframe() for timeseries in self.timeseries])))
         '''Method to re-structure data by index ['band', 'instrument']'''
 
     
@@ -255,7 +248,7 @@ if __name__ == '__main__':
     d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB') 
     d.convert_time('mjd')
     d.convert_flux(u.mJy)
-    print(repr(d))    
+    print(d.to_json())    
     
     newt= QTable([time, f, ef], names=['time', 'flux', 'flux_error'])
     newt= QTable([time.jd, f, ef], names=['time', 'flux', 'flux_error'])
@@ -263,5 +256,3 @@ if __name__ == '__main__':
     df = newt.to_pandas()
     df2 = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
     
-    df_to_export = pd.DataFrame(list_df)
-    json_output = df_to_export.to_json()
