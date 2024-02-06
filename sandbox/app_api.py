@@ -10,10 +10,12 @@ import tempfile
 from tsview.io.fits_parser import ts_fits_reader
 from tsview.io.vo_parser import ts_votable_reader
 from astropy.utils.misc import JsonCustomEncoder
+from tsview.aggregate.data_processing import DataProcess
 #from lxml import etree as ElementTree
+import astropy.units as u
 
 # config file stored in configfile or database
-data_access = [
+DATA_ACCESS = [
     {'mission': 'gaia',   
      'server_url': 'https://gea.esac.esa.int',
      'endpoint': 'data-server/data',
@@ -130,10 +132,17 @@ def index():
     # Check if an ID was provided as part of the URL.
     # If ID is provided, assign it to a variable.
     # If no ID is provided, display an error in the browser.
-    if 'mission' in request.args:
-        mission = request.args['mission']
+    query_parameters = request.args
+
+    mission = query_parameters.get('mission')
+    system = query_parameters.get('system')
+    target_time_unit = query_parameters.get('target_time_unit')
+    target_flux_unit = query_parameters.get('target_flux_unit')
+
+    
+    if mission:
         #select the mission access details
-        mission_access = mission_config(data_access, mission)
+        mission_access = mission_config(DATA_ACCESS, mission)
         server_url = mission_access['server_url']
         endpoint_path = mission_access['endpoint']
         query_params = mission_access['query']
@@ -173,16 +182,24 @@ def index():
     else:
         pass
     
-     # Create a list for the objects
-    times_list = [obj.info._represent_as_dict() for obj in time]
-    times_final = json.dumps(times_list, cls=JsonCustomEncoder)
+    #  # Create a list for the objects
+    # times_list = [obj.info._represent_as_dict() for obj in time]
+    # times_final = json.dumps(times_list, cls=JsonCustomEncoder)
    
-    data_list = [obj.to_pandas().to_json() for obj in data]
-    data_final = json.dumps(data_list)
+    # data_list = [obj.to_pandas().to_json() for obj in data]
+    # data_final = json.dumps(data_list)
 
-    return {'time': times_final, 'times_len': len(times_list) , 'data': data_final, 'data_len': len(data_list)}
-    #return jsonify({'times': [obj.info._represent_as_dict() for obj in time]}) 
-    
+    # return {'time': times_final, 'times_len': len(times_list) , 'data': data_final, 'data_len': len(data_list)}
+    # #return jsonify({'times': [obj.info._represent_as_dict() for obj in time]}) 
+    if system:
+        d = DataProcess(mission, time, data, system)
+    else:
+        d = DataProcess(mission, time, data) 
+    if target_time_unit:
+        d.convert_time(target_time_unit)# mjd
+    if target_flux_unit:
+        d.convert_flux(u.Unit(target_flux_unit))# u.mJy
+    return jsonify(d.to_json())  
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port = 8000, threaded = True, debug = True)
@@ -194,6 +211,7 @@ if __name__ == '__main__':
 mission = 'gaia'
 sourceID = 'Gaia+DR3+4111834567779557376'
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376
+http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy
 
 mission = 'jwst'
 sourceID = None,

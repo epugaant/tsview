@@ -17,6 +17,7 @@ import json
 
 DATA_DICT = {
 'gaia': {
+    'system': 'AB',
     'zeropt': {'G': {'VEGAMAG': {'zp': 25.6873668671 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0027553202* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 6217.51 * u.AA, 'f_zp_nu': 3228.75 * u.Jy}, 'AB': {'zp': 25.8010446445 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0027590522 * u.Unit("mag(AB s/electron)"), 'lamb': 6217.51 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
         'BP': {'VEGAMAG': {'zp': 25.3385422158 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0027901700* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 5109.71 * u.AA, 'f_zp_nu': 3552.01 * u.Jy}, 'AB': {'zp': 25.3539555559 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0023065687 * u.Unit("mag(AB s/electron)"), 'lamb': 5109.71 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
         'RP': {'VEGAMAG': {'zp': 24.7478955012 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0037793818* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 7769.02 * u.AA, 'f_zp_nu': 2554.95 * u.Jy}, 'AB': {'zp': 25.1039837393 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0015800349 * u.Unit("mag(AB s/electron)"), 'lamb': 7769.02 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
@@ -163,17 +164,19 @@ class TimeSeries:
     data_unit: u
     cid:  str|None 
     
-    def create_dataframe(self):
+    def to_json(self):
         '''This method composes the output pandas DataFrame to a json representation'''
-        if len(self.flux) == len(self.time):
-            t = QTable([self.time, self.flux, self.flux_error], names=['time', 'flux', 'flux_error'])
-        else:
-            t = QTable([self.flux, self.flux_error], names=['flux', 'flux_error'])
-            t['time'] = self.time
+        # if len(self.flux) == len(self.time):
+        #     t = QTable([self.time, self.flux, self.flux_error], names=['time', 'flux', 'flux_error'])
+        # else:
+        #     t = QTable([self.flux, self.flux_error], names=['flux', 'flux_error'])
+        t = QTable([self.flux, self.flux_error], names=['flux', 'flux_error'])
+        t['time'] = self.time.to_value(self.time.format) # workaround as QTable cannot convert mixin columns (time) to pandas.
         df = t.to_pandas()
         #include cid column in pandas df
         if self.cid:
-            df[self.cid] = self.cid_col
+            df[self.cid] = self.cid_col.astype('U13')
+            #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
             df_g = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
             return df_g
         else:
@@ -185,7 +188,7 @@ class DataProcess:
     mission: str
     time_collection: list[Time]
     table_collection: list[Table]
-    system: str
+    system: str|None = field(default = None) #init=False)
     cid: str|None = field(init=False)
     time_format: str = field(init=False)
     data_unit: u = field(default= u.mJy, init=False)
@@ -195,6 +198,13 @@ class DataProcess:
     
     def __post_init__(self):
         graphic_dict =  DATA_DICT[self.mission]['graphic']
+        
+        if not self.system:
+            try:
+                self.system = DATA_DICT[self.mission]['system']
+            except KeyError:
+                raise Exception("Photometric system undefined in configuration")
+        
         try:
             [self.cid] = glom.glom(graphic_dict, '**.cid')
         except:
@@ -204,6 +214,7 @@ class DataProcess:
             [self.err_y_colname] = glom.glom(graphic_dict, '**.y_err.colname')
         except:
             self.err_y_colname = None
+            
         if self.err_y_colname:
             if self.cid:
                 self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, table[self.err_y_colname].quantity, table[self.cid].value, time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
@@ -220,7 +231,8 @@ class DataProcess:
     def convert_time(self, target_unit): #perhaps a dataclass_transform
         for i in range(len(self.timeseries)):
             if self.timeseries[i].time_format != target_unit:
-                self.timeseries[i].time_format = target_unit
+                self.timeseries[i].time.format = self.timeseries[i].time_format = target_unit
+        self.time_format = target_unit
 
     def convert_flux(self, target_unit):
         zpt_dict = DATA_DICT[self.mission]['zeropt']
@@ -230,9 +242,11 @@ class DataProcess:
                     self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
                 else:
                     self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit)
+                self.timeseries[i].data_unit = target_unit
+        self.data_unit = target_unit
     
     def to_json(self) -> str:
-        return json.dumps(dict(zip(list(str(x) for x in range(len(self.timeseries))), [timeseries.create_dataframe() for timeseries in self.timeseries])))
+        return json.dumps(dict(zip(list(str(x) for x in range(len(self.timeseries))), [json.loads(timeseries.to_json()) for timeseries in self.timeseries]))) 
         '''Method to re-structure data by index ['band', 'instrument']'''
 
     
@@ -243,16 +257,20 @@ if __name__ == '__main__':
         tbl['flux'].unit = "electron/s"
     if tbl['flux_error'].unit == "'electron'.s**-1":
         tbl['flux_error'].unit = "electron/s"
-    #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
-
-    d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB') 
-    d.convert_time('mjd')
-    d.convert_flux(u.mJy)
-    print(d.to_json())    
     
-    newt= QTable([time, f, ef], names=['time', 'flux', 'flux_error'])
-    newt= QTable([time.jd, f, ef], names=['time', 'flux', 'flux_error'])
-    newt.add_column(t['band'])
-    df = newt.to_pandas()
-    df2 = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
+    d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG') 
+    d.convert_time('jd')
+    print(d.to_json()) 
+    d.convert_time('mjd')
+    print(d.to_json()) 
+    d.convert_flux(u.mJy)
+    print(d.to_json())  
+    d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG')  
+    d.convert_flux(u.mJy)
+    print(d.timeseries[0].flux)
+    d2 = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB')
+    d2.convert_flux(u.mJy)
+    print(d2.timeseries[0].flux)
+    
+    
     
