@@ -95,6 +95,7 @@ def ts_fits_reader(filename):
     
     match telescop:
         case 'jwst':
+            MULTI_KEYWORDS = ['FILTER']
             TIMESERIES_KEYWORDS = ['TIMESYS', 'TIMEUNIT', 
                     'EXPSTART', 'EXPMID', 'EXPEND', 'EFFEXPTM', #exposures related
                     'BARTDELT', 'BSTRTIME', 'BENDTIME', 'BMIDTIME', 'HELIDELT', 'HSTRTIME', 'HENDTIME', 'HMIDTIME', #exposures related on reference positions
@@ -112,7 +113,7 @@ def ts_fits_reader(filename):
             #     pass
             
             if 'EXTRACT1D' in tinfo['Name']:
-                times, data = extract1d_to_timeseries(filename, hdr, tinfo, TIMESERIES_KEYWORDS, array_int_times = False)
+                times, data = extract1d_to_timeseries(filename, hdr, tinfo, MULTI_KEYWORDS+TIMESERIES_KEYWORDS, array_int_times = False)
             elif 'SCI'in tinfo['Name']:
                 # It is a rateints so the Type is ImageHDU and that is a cube to inspect in slices dimension?
                 # TODO: Consult with Javier as this may be the handshake to cubeviewer.

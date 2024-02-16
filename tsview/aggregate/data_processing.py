@@ -17,26 +17,25 @@ import json
 
 DATA_DICT = {
 'gaia': {
-    'system': 'AB',
+    'system': 'VEGAMAG',
     'zeropt': {'G': {'VEGAMAG': {'zp': 25.6873668671 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0027553202* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 6217.51 * u.AA, 'f_zp_nu': 3228.75 * u.Jy}, 'AB': {'zp': 25.8010446445 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0027590522 * u.Unit("mag(AB s/electron)"), 'lamb': 6217.51 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
         'BP': {'VEGAMAG': {'zp': 25.3385422158 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0027901700* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 5109.71 * u.AA, 'f_zp_nu': 3552.01 * u.Jy}, 'AB': {'zp': 25.3539555559 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0023065687 * u.Unit("mag(AB s/electron)"), 'lamb': 5109.71 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
         'RP': {'VEGAMAG': {'zp': 24.7478955012 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0037793818* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 7769.02 * u.AA, 'f_zp_nu': 2554.95 * u.Jy}, 'AB': {'zp': 25.1039837393 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0015800349 * u.Unit("mag(AB s/electron)"), 'lamb': 7769.02 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
         },
     'graphic': {'y': {'colname': 'flux', 'units': 'electron/s'},
               'y_err': {'colname': 'flux_error', 'units': 'electron/s'},
-              'cid': 'band' }    
+              'cid': 'band',
+              'multi': None}    
         },
 'jwst': {
-    'system': 'AB',
-    'zeropt': {'G': {'VEGAMAG': {'zp': 25.6873668671 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0027553202* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 6217.51 * u.AA, 'f_zp_nu': 3228.75 * u.Jy}, 'AB': {'zp': 25.8010446445 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0027590522 * u.Unit("mag(AB s/electron)"), 'lamb': 6217.51 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
-        'BP': {'VEGAMAG': {'zp': 25.3385422158 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0027901700* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 5109.71 * u.AA, 'f_zp_nu': 3552.01 * u.Jy}, 'AB': {'zp': 25.3539555559 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0023065687 * u.Unit("mag(AB s/electron)"), 'lamb': 5109.71 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
-        'RP': {'VEGAMAG': {'zp': 24.7478955012 * units.VEGAMAG + 0 * u.mag('s/electron'), 'e_zP': 0.0037793818* units.VEGAMAG + 0 * u.mag('s/electron'), 'lamb': 7769.02 * u.AA, 'f_zp_nu': 2554.95 * u.Jy}, 'AB': {'zp': 25.1039837393 * u.Unit("mag(AB s/electron)"), 'e_zP': 0.0015800349 * u.Unit("mag(AB s/electron)"), 'lamb': 7769.02 * u.AA, 'f_zp_nu': 3631 * u.Jy}}, 
-        },
+    'system': 'VEGAMAG',
+    'zeropt': {'P750L': {'VEGAMAG': { 'lamb': 8000 * u.AA}}
+               },
     'graphic': {'y': {'colname': 'FLUX', 'units': 'Jy'},
               'y_err': {'colname': 'FLUX_ERROR', 'units': 'Jy'},
               'cid': None,
               'cextra': 'WAVELENGTH',
-              'multip': 'FILTER'}    
+              'multi': 'FILTER'}    
         }
 }
 
@@ -105,7 +104,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
         orig_unit = t[flux_col].unit
     
     if orig_unit.physical_type in ('unknown', 'dimensionless'):
-        #check if field exists in dictionary
+        #check if f_zp_mi field exists in dictionary
         if glom.glom(data_dict, '**.f_zp_nu'):
             if cid is not None and id is not None:
                 raise ValueError('Should have cid, or id, but not both')
@@ -119,7 +118,6 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                 else:
                     f = f_zp_nu.quantity * magToFlux(t[flux_col].quantity) 
             else:
-                
                 if glom.glom(data_dict, '**.zp'):
                     if cid is not None and id is not None:
                         raise ValueError('Should have cid, or id, but not both')
@@ -201,37 +199,41 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
             return (f, ef)
         else:
             return (f)
+    # else:
+    #     units.convert_flux([5124.2 , 6251.5 , 7829.65] * u.AA, [0, 0, 0] * units.VEGAMAG, u.Jy, vegaspec=vega)
 
 @dataclass
 class TimeSeries:
     time: Quantity
-    flux: Quantity
-    flux_error: Quantity|None 
-    cid_col : np.ndarray|None 
     time_format: str
+    flux: Quantity
     data_unit: u
-    cid:  str|None 
+    flux_error: Quantity|None = field(default = None)
+    id_col : np.ndarray|None = field(default = None)
+    id:  str|None = field(default = None)
     
     def to_json(self):
         '''This method composes the output pandas DataFrame to a json representation'''
-        # if len(self.flux) == len(self.time):
+        # if len(self.flux) == self.time.size:
         #     t = QTable([self.time, self.flux, self.flux_error], names=['time', 'flux', 'flux_error'])
         # else:
         #     t = QTable([self.flux, self.flux_error], names=['flux', 'flux_error'])
-        if self.flux_error:
+        if self.flux_error is not None:
             t = QTable([self.flux, self.flux_error], names=['flux', 'flux_error'])
         else:
             t = QTable([self.flux], names=['flux'])
         t['time'] = self.time.to_value(self.time.format) # workaround as QTable cannot convert mixin columns (time) to pandas.
         df = t.to_pandas()
         #include cid column in pandas df
-        if self.cid:
-            df[self.cid] = self.cid_col.astype('U13')
+        if len(self.id_col) == len(self.flux):
+            df[self.id] = self.id_col.astype('U13')
             #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
-            df_g = df.groupby('band')[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
+            df_g = df.groupby(self.id)[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
             return df_g
+        elif len(self.id_col) == 1:
+            return json.dumps({self.id_col[0]: df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_dict(orient='list')})
         else:
-            return df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json()
+            return json.dumps(df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_dict(orient='list'))
 
 #lists of Times and the sanitized astropy.table.Table
 @dataclass
@@ -241,6 +243,7 @@ class DataProcess:
     table_collection: list[Table]
     system: str|None = field(default = None) #init=False)
     cid: str|None = field(init=False)
+    multi: str|None = field(init=False)
     time_format: str = field(init=False)
     data_unit: u = field(default= u.mJy, init=False)
     y_colname: str = field(init=False)
@@ -260,6 +263,11 @@ class DataProcess:
             [self.cid] = glom.glom(graphic_dict, '**.cid')
         except:
             self.cid = None
+        try:
+            [self.multi] = glom.glom(graphic_dict, '**.multi')
+        except:
+            self.multi = None
+
         [self.y_colname] = glom.glom(graphic_dict, '**.y.colname')
         try:
             [self.err_y_colname] = glom.glom(graphic_dict, '**.y_err.colname')
@@ -268,14 +276,18 @@ class DataProcess:
             
         if self.err_y_colname:
             if self.cid:
-                self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, table[self.err_y_colname].quantity, table[self.cid].value, time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+            elif self.multi:
+                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]
             else:
-                self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, table[self.err_y_colname].quantity, time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity) for time, table in zip(self.time_collection, self.table_collection)]
         else:
             if self.cid:
-                self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, table[self.cid].value, time.format, table[self.y_colname].unit, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+            elif self.multi:
+                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]                
             else:
-                self.timeseries = [TimeSeries(time, table[self.y_colname].quantity, time.format, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
+                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
         self.time_format = self.time_collection[-1].format
         self.data_unit = self.table_collection[-1][self.y_colname].unit
      
@@ -290,9 +302,15 @@ class DataProcess:
         for i in range(len(self.timeseries)):
             if self.timeseries[i].data_unit != target_unit:
                 if self.err_y_colname:
-                    self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
+                    if self.cid:
+                        self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
+                    elif self.multi:
+                        self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, id=self.table_collection[i].meta[self.multi], target_unit=target_unit, fluxe_col=self.err_y_colname)
                 else:
-                    self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit)
+                    if self.cid:
+                        self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit)
+                    elif self.multi:
+                        self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, id=self.table_collection[i].meta[self.multi], target_unit=target_unit)
                 self.timeseries[i].data_unit = target_unit
         self.data_unit = target_unit
     
@@ -303,25 +321,38 @@ class DataProcess:
     
 if __name__ == '__main__':
 
-    tbl = Table.read('/Users/epuga/ESDC/TSViz/data/gaia/anonymous1690191210843_fits/EPOCH_PHOTOMETRY-Gaia DR3 4057091150787104896.fits', astropy_native=True)
-    if tbl['flux'].unit == "'electron'.s**-1":
-        tbl['flux'].unit = "electron/s"
-    if tbl['flux_error'].unit == "'electron'.s**-1":
-        tbl['flux_error'].unit = "electron/s"
+    # tbl = Table.read('/Users/epuga/ESDC/TSViz/data/gaia/anonymous1690191210843_fits/EPOCH_PHOTOMETRY-Gaia DR3 4057091150787104896.fits', astropy_native=True)
+    # if tbl['flux'].unit == "'electron'.s**-1":
+    #     tbl['flux'].unit = "electron/s"
+    # if tbl['flux_error'].unit == "'electron'.s**-1":
+    #     tbl['flux_error'].unit = "electron/s"
     
-    d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG') 
+    # d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG') 
+    # d.convert_time('jd')
+    # print(d.to_json()) 
+    # d.convert_time('mjd')
+    # print(d.to_json()) 
+    # d.convert_flux(u.mJy)
+    # print(d.to_json())  
+    # d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG')  
+    # d.convert_flux(u.mJy)
+    # print(d.timeseries[0].flux)
+    # d2 = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB')
+    # d2.convert_flux(u.mJy)
+    # print(d2.timeseries[0].flux)
+    
+    import os
+    from tsview import DATADIR
+    from tsview.io.fits_parser import ts_fits_reader
+    
+    filename = 'jw02783-o002_t001_miri_p750l-slitlessprism_x1dints.fits'
+    time, data = ts_fits_reader(os.path.join(DATADIR, filename))
+    new_data = [tbl['WAVELENGTH', 'FLUX', 'FLUX_ERROR'] for tbl in data]
+    d = DataProcess('jwst', time, new_data, 'VEGAMAG')
     d.convert_time('jd')
-    print(d.to_json()) 
-    d.convert_time('mjd')
-    print(d.to_json()) 
+    print(d.to_json())
     d.convert_flux(u.mJy)
-    print(d.to_json())  
-    d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG')  
-    d.convert_flux(u.mJy)
-    print(d.timeseries[0].flux)
-    d2 = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB')
-    d2.convert_flux(u.mJy)
-    print(d2.timeseries[0].flux)
-    
+    print(d.to_json())
+    pass
     
     

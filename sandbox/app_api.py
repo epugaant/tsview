@@ -212,6 +212,7 @@ mission = 'gaia'
 sourceID = 'Gaia+DR3+4111834567779557376'
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy
+http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy&system=VEGAMAG
 
 mission = 'jwst'
 sourceID = None,
