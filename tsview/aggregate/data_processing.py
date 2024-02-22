@@ -102,6 +102,10 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
         
     if not orig_unit:
         orig_unit = t[flux_col].unit
+        
+    if orig_unit == target_unit:
+        print('Orig unit {0} is equal to target unit {1}'.format(orig_unit, target_unit))
+        return 
     
     if orig_unit.physical_type in ('unknown', 'dimensionless'):
         #check if f_zp_mi field exists in dictionary
@@ -194,12 +198,25 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                     msys_plus = minst_plus + zp.quantity
                     f_plus = units.convert_flux(wave.quantity, msys_plus, target_unit, vegaspec=vega)
                     ef = abs(f_plus-f)
-                    
+    else:
+        if cid is not None and id is not None:
+            raise ValueError('Should have cid, or id, but not both')
+        elif cid:
+            wave = column_from_column_index(t, cid, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'lamb'))
+        elif id:
+            wave = column_from_index(t, id, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'lamb'))
+        vega = SourceSpectrum.from_vega() 
+        f = units.convert_flux(wave.quantity, t[flux_col].quantity, target_unit, vegaspec=vega)
         if fluxe_col in t.colnames:
-            return (f, ef)
-        else:
-            return (f)
-    # else:
+            msys_plus = t[flux_col].quantity + t[fluxe_col].quantity
+            f_plus = units.convert_flux(wave.quantity, msys_plus, target_unit, vegaspec=vega)
+            ef = abs(f_plus-f) 
+                    
+    if fluxe_col in t.colnames:
+        return (f, ef)
+    else:
+        return (f)
+# else:
     #     units.convert_flux([5124.2 , 6251.5 , 7829.65] * u.AA, [0, 0, 0] * units.VEGAMAG, u.Jy, vegaspec=vega)
 
 @dataclass
