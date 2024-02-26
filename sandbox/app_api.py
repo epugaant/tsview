@@ -1,9 +1,9 @@
-from flask import request, jsonify
+from flask import request, make_response
 from flask import Flask
 import requests
 import io
 import os
-import json
+from urllib.parse import urljoin
 import gzip
 import tempfile
 
@@ -48,8 +48,7 @@ def mission_config(data_access, mission):
     
 def build_dp_url(server_url, endpoint_path, query_params):
     '''Construct string with url with placeholders for parameters'''
-    base_url = os.path.join(server_url, endpoint_path)
-
+    base_url = urljoin(server_url, endpoint_path)
     return base_url  + "?" + query_params
 
 def adql_request(adql_info, obsID, prodType):
@@ -103,9 +102,10 @@ def get_data(resp):
         f = res
     print(type(f)) # '_io.BytesIO'
     
-    #W rite the response to a temporary file
-    with tempfile.NamedTemporaryFile(delete=True) as fp:
-        fp.write(res)
+    # Write the response to a temporary file
+    # Delete needs to be False, otherwise the file isn't findable on Windows machines
+    with tempfile.NamedTemporaryFile(delete=False) as fp:
+        fp.write(resp.content)
         # Determine content-type in response (VOTable, FITS or csv)
         if resp.headers['content-type'] == 'application/fits':
             if os.path.exists(fp.name):
@@ -113,7 +113,6 @@ def get_data(resp):
         elif resp.headers['content-type'] == 'application/x-votable+xml': 
             if os.path.exists(fp.name):
                 time, data = ts_votable_reader(fp.name)
-    # Here the temporary file is deleted
     return time, data
     
 
@@ -126,9 +125,24 @@ def get_data(resp):
 app = Flask(__name__)
 app.json_encoder = JsonCustomEncoder
 
+def _build_cors_preflight_response():
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add('Access-Control-Allow-Headers', "*")
+    response.headers.add('Access-Control-Allow-Methods', "*")
+    return response
+
+def _create_cors_response():
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    return response
+
 #The route function tells the application which URL should call the associated function.
-@app.route('/ts/v1', methods=['GET'])
+@app.route('/ts/v1', methods=['GET', 'OPTIONS'])
 def index():
+    if request.method == "OPTIONS": # CORS preflight
+            return _build_cors_preflight_response()
+
     # Check if an ID was provided as part of the URL.
     # If ID is provided, assign it to a variable.
     # If no ID is provided, display an error in the browser.
@@ -199,7 +213,10 @@ def index():
         d.convert_time(target_time_unit)# mjd
     if target_flux_unit:
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
-    return jsonify(d.to_json())  
+
+    response = _create_cors_response()
+    response.data = d.to_json();
+    return response
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port = 8000, threaded = True, debug = True)
