@@ -1,10 +1,13 @@
 numpy 
 astropy 
 matplotlib
-astroquery>=0.4.7
+astroquery>=0.4.7dev9069
 spectral-cube
 bottleneck
 regions
 reproject
 stdatamodels>=1.7.1
 flask
+glom
+synphot
+pandas
