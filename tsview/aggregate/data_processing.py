@@ -13,7 +13,7 @@ from synphot.spectrum import SourceSpectrum
 
 import pandas as pd
 import json
-
+import plotly.graph_objects as go
 
 DATA_DICT = {
 'gaia': {
@@ -34,8 +34,8 @@ DATA_DICT = {
     'graphic': {'y': {'colname': 'FLUX', 'units': 'Jy'},
               'y_err': {'colname': 'FLUX_ERROR', 'units': 'Jy'},
               'cid': None,
-              'cextra': 'WAVELENGTH',
-              'multi': 'FILTER'}    
+              'multi': 'FILTER',
+              'cextra': 'WAVELENGTH'}    
         }
 }
 
@@ -229,18 +229,19 @@ class TimeSeries:
     id_col : np.ndarray|None = field(default = None)
     id:  str|None = field(default = None)
     
-    def to_json(self):
-        '''This method composes the output pandas DataFrame to a json representation'''
-        # if len(self.flux) == self.time.size:
-        #     t = QTable([self.time, self.flux, self.flux_error], names=['time', 'flux', 'flux_error'])
-        # else:
-        #     t = QTable([self.flux, self.flux_error], names=['flux', 'flux_error'])
+    def to_pandas(self):
+        '''This method converts a QTable into a pandas DataFrame for organization'''
         if self.flux_error is not None:
             t = QTable([self.flux, self.flux_error], names=['flux', 'flux_error'])
         else:
             t = QTable([self.flux], names=['flux'])
-        t['time'] = self.time.to_value(self.time.format) # workaround as QTable cannot convert mixin columns (time) to pandas.
+        t['time'] = self.time.to_value(self.time.format) # workaround as QTable cannot convert mixin columns (time) to pandas Dataframe
         df = t.to_pandas()
+        return df
+    
+    def to_json(self):
+        '''This method composes the output pandas DataFrame to a json representation using groupby on cid or directly converts to string'''
+        df = self.to_pandas()
         #include cid column in pandas df
         if len(self.id_col) == len(self.flux):
             df[self.id] = self.id_col.astype('U13')
@@ -251,6 +252,8 @@ class TimeSeries:
             return json.dumps({self.id_col[0]: df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_dict(orient='list')})
         else:
             return json.dumps(df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_dict(orient='list'))
+        
+
 
 #lists of Times and the sanitized astropy.table.Table
 @dataclass
@@ -262,6 +265,7 @@ class DataProcess:
     cid: str|None = field(init=False)
     multi: str|None = field(init=False)
     time_format: str = field(init=False)
+    time_scale: str = field(init=False)
     data_unit: u = field(default= u.mJy, init=False)
     y_colname: str = field(init=False)
     err_y_colname: str|None = field(init=False)
@@ -306,6 +310,7 @@ class DataProcess:
             else:
                 self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
         self.time_format = self.time_collection[-1].format
+        self.time_scale = self.time_collection[-1].scale
         self.data_unit = self.table_collection[-1][self.y_colname].unit
      
     def convert_time(self, target_unit): #perhaps a dataclass_transform
@@ -334,19 +339,66 @@ class DataProcess:
     def to_json(self) -> str:
         return json.dumps(dict(zip(list(str(x) for x in range(len(self.timeseries))), [json.loads(timeseries.to_json()) for timeseries in self.timeseries]))) 
         '''Method to re-structure data by index ['band', 'instrument']'''
+        
+    def to_plotly(self) -> str:
+        fig = go.Figure()
+        for timeseries in self.timeseries:
+            df = timeseries.to_pandas().rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'})
+            if len(timeseries.id_col) == len(timeseries.flux):
+                df[timeseries.id] = timeseries.id_col.astype('U13')
+                #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
+                for index, df_group in df.groupby(timeseries.id):
+                    x = df_group.x
+                    y = df_group.y
+                    if timeseries.flux_error is None:
+                        error_y = None
+                    else:
+                        error_y = dict(
+                                type='data', # value of error bar given in data coordinates
+                                array=df_group.error_y,
+                                visible=True)
+                    fig.add_trace(go.Scatter(x=x, y=y, error_y=error_y, name=index)) 
+            elif len(timeseries.id_col) == 1: 
+                x = df.x
+                y = df.y
+                if timeseries.flux_error is None:
+                    error_y = None
+                else:
+                    error_y = dict(
+                            type='data', # value of error bar given in data coordinates
+                            array=df.error_y,
+                            visible=True)
+                fig.add_trace(go.Scatter(x=x, y=y, error_y=error_y, name=timeseries.id_col[0]))
+            else:
+                x = df.x
+                y = df.y
+                if timeseries.flux_error is None:
+                    error_y = None
+                else:
+                    error_y = dict(
+                            type='data', # value of error bar given in data coordinates
+                            array=df.error_y,
+                            visible=True)
+                fig.add_trace(go.Scatter(x=x, y=y, error_y=error_y))
+        fig.update_layout(legend_title_text = self.mission)
+        fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format, self.time_scale.upper()))
+        fig.update_yaxes(title_text='{0} [{1}]'.format(self.y_colname.capitalize(), self.data_unit.to_string()))
+        return fig.to_json(validate=True)
 
     
 if __name__ == '__main__':
 
-    # tbl = Table.read('/Users/epuga/ESDC/TSViz/data/gaia/anonymous1690191210843_fits/EPOCH_PHOTOMETRY-Gaia DR3 4057091150787104896.fits', astropy_native=True)
-    # if tbl['flux'].unit == "'electron'.s**-1":
-    #     tbl['flux'].unit = "electron/s"
-    # if tbl['flux_error'].unit == "'electron'.s**-1":
-    #     tbl['flux_error'].unit = "electron/s"
+    tbl = Table.read('/Users/epuga/ESDC/TSViz/data/gaia/anonymous1690191210843_fits/EPOCH_PHOTOMETRY-Gaia DR3 4057091150787104896.fits', astropy_native=True)
+    if tbl['flux'].unit == "'electron'.s**-1":
+        tbl['flux'].unit = "electron/s"
+    if tbl['flux_error'].unit == "'electron'.s**-1":
+        tbl['flux_error'].unit = "electron/s"
     
-    # d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG') 
-    # d.convert_time('jd')
-    # print(d.to_json()) 
+    d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG') 
+    #d.convert_time('jd')
+    #print(d.to_json()) 
+    d.convert_flux('units.VEGAMAG')
+    print(d.to_plotly())
     # d.convert_time('mjd')
     # print(d.to_json()) 
     # d.convert_flux(u.mJy)
@@ -357,6 +409,7 @@ if __name__ == '__main__':
     # d2 = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB')
     # d2.convert_flux(u.mJy)
     # print(d2.timeseries[0].flux)
+    
     
     import os
     from tsview import DATADIR
@@ -369,7 +422,7 @@ if __name__ == '__main__':
     d.convert_time('jd')
     print(d.to_json())
     d.convert_flux(u.mJy)
-    print(d.to_json())
+    print(d.to_plotly())
     pass
     
     

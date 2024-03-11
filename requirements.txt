@@ -11,3 +11,4 @@ flask
 glom
 synphot
 pandas
+plotly
