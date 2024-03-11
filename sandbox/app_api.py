@@ -215,7 +215,7 @@ def index():
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
 
     response = _create_cors_response()
-    response.data = d.to_json();
+    response.data = d.to_plotly();
     return response
 
 if __name__ == '__main__':
@@ -235,4 +235,6 @@ mission = 'jwst'
 sourceID = None,
 obsID = 'jw02783-o002_t001_miri_p750l-slitlessprism'
 prodType = 'x1dints' 
-http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints'''
+http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints
+http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints&target_time_unit=jd&target_flux_unit=Jy
+'''
