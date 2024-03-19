@@ -52,7 +52,7 @@ def column_from_column_index(tbl, cid, data_dict, expr_dict):
         [zp] = glom.flatten(target, levels=(expr_dict.count('**') - 1))
         tbl['tmp_col'][indx] = zp.value
     tbl['tmp_col'].unit = zp.unit
-    tbl.sort('tmp_col')
+    #tbl.sort('tmp_col')
     new_col = tbl['tmp_col']
     tbl.remove_column('tmp_col')
     return new_col
@@ -139,72 +139,67 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
         print('Orig unit {0} is equal to target unit {1}'.format(orig_unit, target_unit))
         return 
     
+    #if data product units are instrumental (uncalibrated)
     if orig_unit.physical_type in ('unknown', 'dimensionless'):
-        #check if f_zp_mi field exists in dictionary
+        #check if f_zp_nu field exists in dictionary
         if glom.glom(data_dict, '**.f_zp_nu'):
-            # if cid is not None and id is not None:
-            #     raise ValueError('Should have cid, or id, but not both')
-            # elif cid:
-            #     f_zp_nu = column_from_column_index(t, cid, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'f_zp_nu'))
-            # elif id:
-            #     f_zp_nu = column_from_index(t, id, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'f_zp_nu'))
             f_zp_nu = column_factory(t, 'f_zp_nu', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
             if isinstance(orig_unit, u.MagUnit):
                 if fluxe_col in t.colnames:
                     f, ef = f_zp_nu.quantity * magErrToFlux(t[flux_col].quantity, t[fluxe_col].quantity)# [u.Jy] * [dimensionless]
                 else:
                     f = f_zp_nu.quantity * magToFlux(t[flux_col].quantity) 
+            #convert to logaritmic scales for compatibility with zp
             else:
                 if glom.glom(data_dict, '**.zp'):
-                    if cid is not None and id is not None:
-                        raise ValueError('Should have cid, or id, but not both')
-                    elif cid:
-                        zp = column_from_column_index(t, cid, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'zp'))
-                    elif id:
-                        zp = column_from_index(t, id, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'zp'))
+                    zp = column_factory(t, 'zp', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
                 else:
                     print('No mag zeropoint exists in the data_dict')
                     return []
                 if fluxe_col in t.colnames:
                     minst, eminst = fluxErrToMag(t[flux_col].quantity, t[fluxe_col].quantity)
+                    #include zp uncertainty in propagation, if you have it
                     if glom.glom(data_dict, '**.e_zP'):
                         e_zp = column_from_column_index(t, 'band', data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'e_zP'))
                         em = np.sqrt(eminst.value**2+ e_zp.value**2) * minst.unit # No astropy unit can do addition in quadrature
                     else:
                         em = eminst
+                    em = em + (0 * zp.unit)
                 else:
                     minst = fluxToMag(t[flux_col].quantity)
                 msys = minst + zp.quantity
-                if fluxe_col in t.colnames:
-                    f, ef = f_zp_nu.quantity * magErrToFlux(msys, em)
+                if target_unit != units.VEGAMAG:
+                    # if target_unit != (zp.unit - u.mag(1/orig_unit)):
+                    #     msys = minst + zp.quantity
+                    # else:
+                    #     msys = minst
+                    
+                    #now back to flux
+                    if fluxe_col in t.colnames:
+                        f, ef = f_zp_nu.quantity * magErrToFlux(msys, em)
+                    else:
+                        f = f_zp_nu.quantity * magToFlux(msys)
                 else:
-                    f = f_zp_nu.quantity * magToFlux(msys)
-            # from intermediate units, to target untis
-            if target_unit != f_zp_nu.unit:
-                if cid is not None and id is not None:
-                    raise ValueError('Should have cid, or id, but not both')
-                elif cid:
-                    wave = column_from_column_index(t, cid, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'lamb'))
-                elif id:
-                    wave = column_from_index(t, id, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'lamb')) 
+                    if fluxe_col in t.colnames:
+                        f, ef = msys, em
+                    else:
+                        f = msys
+                # from intermediate units, to target untis
+            if target_unit != f_zp_nu.unit and target_unit != units.VEGAMAG:
+                wave = column_factory(t, 'lamb', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
                 vega = SourceSpectrum.from_vega()
                 f_int = f
                 f = convert_flux_by_wave(wave.quantity, f, target_unit, vegaspec=vega)
                 if fluxe_col in t.colnames: 
-                    msys_plus = f_int + ef
-                    f_plus = convert_flux_by_wave(wave.quantity, msys_plus, target_unit, vegaspec=vega)
+                    f_plus = f_int + ef
+                    f_plus = convert_flux_by_wave(wave.quantity, f_plus, target_unit, vegaspec=vega)
                     #ef = abs(f_plus-f)
                     # For the VEGAMAG case, where the unit is not recognized
                     ef = u.Quantity(abs(f_plus.value - f.value), f_plus.unit)          
         else:
             print('No flux zeropoint exists in the data_dict. We will do an approximation with convert_flux')
             #conversion using synphot conver_flux with model when VEGA photometric system
-            if cid is not None and id is not None:
-                raise ValueError('Should have cid, or id, but not both')
-            elif cid:
-                wave = column_from_column_index(t, cid, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'lamb'))
-            elif id:
-                wave = column_from_index(t, id, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'lamb'))
+            wave = column_factory(t, 'lamb', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
             vega = SourceSpectrum.from_vega()  # For unit conversion  
             if isinstance(orig_unit, u.MagUnit):
                 f = convert_flux_by_wave(wave.quantity, t[flux_col].quantity, target_unit, vegaspec=vega)
@@ -214,12 +209,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                     ef = abs(f_plus-f)
             else:
                 if glom.glom(data_dict, '**.zp'):
-                    if cid is not None and id is not None:
-                        raise ValueError('Should have cid, or id, but not both')
-                    elif cid:
-                        zp = column_from_column_index(t, cid, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'zp'))
-                    elif id:
-                        zp = column_from_index(t, id, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'zp')) 
+                     zp = column_factory(t, 'zp', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
                 else:
                     print('No mag zeropoint exists in the data_dict')
                     return []
@@ -237,13 +227,9 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                     msys_plus = minst_plus + zp.quantity
                     f_plus = convert_flux_by_wave(wave.quantity, msys_plus, target_unit, vegaspec=vega)
                     ef = abs(f_plus-f)
+    #if physical units are calibrated (e.g. mag(AB))
     else:
-        if cid is not None and id is not None:
-            raise ValueError('Should have cid, or id, but not both')
-        elif cid:
-            wave = column_from_column_index(t, cid, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'lamb'))
-        elif id:
-            wave = column_from_index(t, id, data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'lamb'))
+        wave = column_factory(t, 'lamb', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
         vega = SourceSpectrum.from_vega() 
         f = convert_flux_by_wave(wave.quantity, t[flux_col].quantity, target_unit, vegaspec=vega)
         if fluxe_col in t.colnames:
@@ -426,6 +412,7 @@ class DataProcess:
     
 if __name__ == '__main__':
 
+
     tbl = Table.read('/Users/epuga/ESDC/TSViz/data/gaia/anonymous1690191210843_fits/EPOCH_PHOTOMETRY-Gaia DR3 4057091150787104896.fits', astropy_native=True)
     if tbl['flux'].unit == "'electron'.s**-1":
         tbl['flux'].unit = "electron/s"
@@ -435,11 +422,15 @@ if __name__ == '__main__':
     d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG') 
     #d.convert_time('jd')
     #print(d.to_json()) 
-    #d.convert_flux(u.mJy)
+    d.convert_flux(u.mJy)
     #print(d.to_json()) 
+    print(d.timeseries[0].id_col)
+    print(d.timeseries[0].flux)
     d.convert_flux(units.VEGAMAG)
-    print(d.to_json()) 
-    print(d.to_plotly())
+    print(d.timeseries[0].id_col)
+    print(d.timeseries[0].flux)
+    #print(d.to_json()) 
+    #print(d.to_plotly())
     # d.convert_time('mjd')
     # print(d.to_json()) 
     # d.convert_flux(u.mJy)
