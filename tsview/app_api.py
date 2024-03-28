@@ -7,36 +7,16 @@ from urllib.parse import urljoin
 import gzip
 import tempfile
 
+import astropy.units as u
+from astropy.utils.misc import JsonCustomEncoder
+
+# config file stored in configfile
+from tsview.access_config import DATA_ACCESS
+
 from tsview.io.fits_parser import ts_fits_reader
 from tsview.io.vo_parser import ts_votable_reader
-from astropy.utils.misc import JsonCustomEncoder
 from tsview.aggregate.data_processing import DataProcess
-#from lxml import etree as ElementTree
-import astropy.units as u
 
-# config file stored in configfile or database
-DATA_ACCESS = [
-    {'mission': 'gaia',   
-     'server_url': 'https://gea.esac.esa.int',
-     'endpoint': 'data-server/data',
-     'query': 'RETRIEVAL_TYPE=EPOCH_PHOTOMETRY&ID={0}&FORMAT=votable&RELEASE=Gaia+DR3&DATA_STRUCTURE=INDIVIDUAL',
-     # example url: 'https://gea.esac.esa.int/data-server/data?RETRIEVAL_TYPE=EPOCH_PHOTOMETRY&ID={0}&FORMAT=votable&RELEASE=Gaia+DR3&DATA_STRUCTURE=INDIVIDUAL'
-    },
-    {'mission': 'jwst',
-     'server_url': 'https://jwst.esac.esa.int',
-     'endpoint': 'server/data',
-     'query': 'ARTIFACTID={0}&RETRIEVAL_TYPE=PRODUCT',
-     # example url: 'https://jwst.esac.esa.int/server/data?ARTIFACTID={0}&RETRIEVAL_TYPE=PRODUCT'
-     'adql_info': {
-        'url': 'https://jwst.esac.esa.int/server/tap/sync',
-        'REQUEST':'doQuery',
-        'LANG':'ADQL',
-        'FORMAT':'json',
-        'PHASE':'RUN',
-        'QUERY':'SELECT a.artifactid FROM  jwst.artifact AS a WHERE a.uri LIKE \'%{0}%.fits\' AND a.uri LIKE \'%{1}%\' ORDER BY a.filename DESC'
-        }
-    }
-    ]
 
 def mission_config(data_access, mission):
     '''Return the single dictionary corresponding to the mission'''
@@ -114,13 +94,9 @@ def get_data(resp):
             if os.path.exists(fp.name):
                 time, data = ts_votable_reader(fp.name)
     return time, data
-    
-
 
 #data = json.loads(data_file.read())
 #data_allmissions = json.loads(data_access)
-
-
 
 app = Flask(__name__)
 app.json_encoder = JsonCustomEncoder
