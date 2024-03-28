@@ -342,7 +342,13 @@ class DataProcess:
     def to_json(self) -> str:
         return json.dumps(dict(zip(list(str(x) for x in range(len(self.timeseries))), [json.loads(timeseries.to_json()) for timeseries in self.timeseries]))) 
         '''Method to re-structure data by index ['band', 'instrument']'''
-        
+
+    def create_scatter(self, x, y, error_y, index=None) -> go.Scatter:
+        scatter = go.Scatter(x=x, y=y, error_y=error_y, name=index)
+        scatter.mode = 'markers'
+        scatter.hovertemplate = r'%{yaxis.title.text}: %{y}<br>%{xaxis.title.text}: %{x}'
+        return scatter
+
     def to_plotly(self) -> str:
         fig = go.Figure()
         for timeseries in self.timeseries:
@@ -360,7 +366,7 @@ class DataProcess:
                                 type='data', # value of error bar given in data coordinates
                                 array=df_group.error_y,
                                 visible=True)
-                    fig.add_trace(go.Scatter(x=x, y=y, error_y=error_y, name=index)) 
+                    fig.add_trace(self.create_scatter(x, y, error_y, index)) 
             elif len(timeseries.id_col) == 1: 
                 x = df.x
                 y = df.y
@@ -371,7 +377,7 @@ class DataProcess:
                             type='data', # value of error bar given in data coordinates
                             array=df.error_y,
                             visible=True)
-                fig.add_trace(go.Scatter(x=x, y=y, error_y=error_y, name=timeseries.id_col[0]))
+                fig.add_trace(self.create_scatter(x, y, error_y, timeseries.id_col[0]))
             else:
                 x = df.x
                 y = df.y
@@ -382,7 +388,7 @@ class DataProcess:
                             type='data', # value of error bar given in data coordinates
                             array=df.error_y,
                             visible=True)
-                fig.add_trace(go.Scatter(x=x, y=y, error_y=error_y))
+                fig.add_trace(self.create_scatter(x, y, error_y))
         fig.update_layout(legend_title_text = self.mission)
         fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format, self.time_scale.upper()))
         fig.update_yaxes(title_text='{0} [{1}]'.format(self.y_colname.capitalize(), self.data_unit.to_string()))
