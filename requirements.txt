@@ -12,3 +12,4 @@ glom
 synphot
 pandas
 plotly
+waitress

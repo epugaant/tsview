@@ -11,3 +11,5 @@ DATADIR = os.path.join(data_dir, 'example_data/')
 #methods that the interpreter will use in the wild card import statement
 # __all__ = ["attitude",
 #            "utils"]
+
+from .app_api import app
