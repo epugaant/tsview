@@ -221,6 +221,60 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
     else:
         return (f)
 
+PHOT_SYS = ['AB', 'ST', 'VEGA']
+PHOT_SYS_MAG_UNIT = {'mag(AB)': u.ABmag, 'mag(ST)': u.STmag, 'mag(VEGA)': units.VEGAMAG}
+
+SPECT_DENS = [
+            'Jy', 'mJy', 'uJy',
+            'W / (m2 Hz)', #'W / (Hz m2)',  # Order is different in astropy v5.3
+            'eV / (s m2 Hz)', #'eV / (Hz s m2)',
+            'erg / (s cm2)',
+            'erg / (s cm2 Angstrom)', #'erg / (Angstrom s cm2)',
+            'erg / (s cm2 Hz)', #'erg / (Hz s cm2)',
+            'ph / (s cm2 Angstrom)', #'ph / (Angstrom s cm2)',
+            'ph / (s cm2 Hz)', #'ph / (Hz s cm2)'
+                ]
+
+def equivalent_units(unit_str):
+    '''Function to return spectral flux and spectral equivalences in BaseUnit and MagUnit as set of strings'''
+    try:
+        units = PHOT_SYS_MAG_UNIT[unit_str]
+    except:
+        units = u.Unit(unit_str)
+        
+    if units.physical_type in ['spectral flux density'] or (hasattr(units, 'physical_unit') and units.physical_unit is not 'dimensionless'): # spectral flux
+        eqv = u.spectral_density(1 * u.m)  # Value does not matter here.
+        exclude_lower = {'flam', 'fnu', 'bol', 'photlam', 'photnu'}
+        exclude_upper = {'FLAM', 'FNU', 'BOL', 'PHOTLAM', 'PHOTNU'}
+        try:
+            list_of_units = set(list(map(str, units.find_equivalent_units(
+                include_prefix_units=False, equivalencies=eqv))) + PHOT_SYS + 
+                                SPECT_DENS) - exclude_lower - exclude_upper
+        except:
+            list_of_units = set(PHOT_SYS + 
+                                SPECT_DENS) - exclude_lower - exclude_upper
+        
+        # include magnitudes for three photometric systems
+        list_of_units = list_of_units | {'mag({})'.format(val) for val in list_of_units if val in PHOT_SYS}
+        # remove VEGA flux
+        list_of_units.remove('VEGA')
+        # remove self
+        list_of_units.remove(unit_str)
+    elif units.physical_type in ['length', 'frequency', 'wavenumber', 'energy']:  # spectral axis
+        # prefer Hz over Bq and um over micron
+        exclude = {'Bq', 'micron'}
+        list_of_units = set(list(map(str, units.find_equivalent_units(
+            include_prefix_units=False, equivalencies=u.spectral()))) + ['um']) - exclude
+    else:
+        list_of_units = set([])
+    return list(list_of_units)
+
+def time_units(time):
+    '''Function to return time equivalences in as set of strings'''
+    exclude = {'cxcsec', 'datetime', 'gps', 'unix', 'unix_tai', 'ymdhms', 'datetime64'}
+    list_of_units = set(list(map(str, time.FORMATS.keys()))) - exclude
+    return list(list_of_units)
+
 
 @dataclass
 class TimeSeries:
@@ -268,8 +322,10 @@ class DataProcess:
     cid: str|None = field(init=False)
     multi: str|None = field(init=False)
     time_format: str = field(init=False)
+    alt_time_format: list = field(init=False)
     time_scale: str = field(init=False)
     data_unit: u = field(default= u.mJy, init=False)
+    alt_data_unit: list = field(init=False)
     y_colname: str = field(init=False)
     err_y_colname: str|None = field(init=False)
     timeseries: list[TimeSeries] = field(default_factory=list, init=False)
@@ -313,14 +369,17 @@ class DataProcess:
             else:
                 self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
         self.time_format = self.time_collection[-1].format
+        self.alt_time_format = time_units(self.timeseries[-1].time)
         self.time_scale = self.time_collection[-1].scale
         self.data_unit = self.table_collection[-1][self.y_colname].unit
+        self.alt_data_unit = equivalent_units(self.data_unit.to_string())
      
     def convert_time(self, target_unit): #perhaps a dataclass_transform
         for i in range(len(self.timeseries)):
             if self.timeseries[i].time_format != target_unit:
                 self.timeseries[i].time.format = self.timeseries[i].time_format = target_unit
         self.time_format = target_unit
+        self.alt_time_format = time_units(self.timeseries[-1].time)
 
     def convert_flux(self, target_unit):
         zpt_dict = DATA_DICT[self.mission]['zeropt']
@@ -338,6 +397,7 @@ class DataProcess:
                         self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, id=self.table_collection[i].meta[self.multi], target_unit=target_unit)
                 self.timeseries[i].data_unit = target_unit
         self.data_unit = target_unit
+        self.alt_data_unit = equivalent_units(self.data_unit.to_string())
     
     def to_json(self) -> str:
         return json.dumps(dict(zip(list(str(x) for x in range(len(self.timeseries))), [json.loads(timeseries.to_json()) for timeseries in self.timeseries]))) 
