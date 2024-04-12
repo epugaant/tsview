@@ -242,7 +242,7 @@ def equivalent_units(unit_str):
     except:
         units = u.Unit(unit_str)
         
-    if units.physical_type in ['spectral flux density'] or (hasattr(units, 'physical_unit') and units.physical_unit is not 'dimensionless'): # spectral flux
+    if units.physical_type in ['spectral flux density'] or (hasattr(units, 'physical_unit') and units.physical_unit != 'dimensionless'): # spectral flux
         eqv = u.spectral_density(1 * u.m)  # Value does not matter here.
         exclude_lower = {'flam', 'fnu', 'bol', 'photlam', 'photnu'}
         exclude_upper = {'FLAM', 'FNU', 'BOL', 'PHOTLAM', 'PHOTNU'}

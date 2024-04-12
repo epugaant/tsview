@@ -1,5 +1,6 @@
 from flask import request, make_response
 from flask import Flask
+from flask_caching import Cache
 import requests
 import io
 import os
@@ -17,6 +18,16 @@ from tsview.io.fits_parser import ts_fits_reader
 from tsview.io.vo_parser import ts_votable_reader
 from tsview.aggregate.data_processing import DataProcess
 
+cacheConfig = {
+    "DEBUG": True,          # some Flask specific configs
+    "CACHE_TYPE": "SimpleCache",  # Flask-Caching related configs
+    "CACHE_DEFAULT_TIMEOUT": 300
+}
+
+app = Flask(__name__)
+app.json_encoder = JsonCustomEncoder
+app.config.from_mapping(cacheConfig)
+cache = Cache(app)
 
 def mission_config(data_access, mission):
     '''Return the single dictionary corresponding to the mission'''
@@ -44,7 +55,6 @@ def adql_request(adql_info, obsID, prodType):
     print(r.json())
     id = r.json()['data'][0][0]
     return id
-
     
 def dp_request(url_str, id):
     '''Funtion to request data product through server´s response. Outputs a list of Times and a list of Tables.'''
@@ -95,11 +105,6 @@ def get_data(resp):
                 time, data = ts_votable_reader(fp.name)
     return time, data
 
-#data = json.loads(data_file.read())
-#data_allmissions = json.loads(data_access)
-
-app = Flask(__name__)
-app.json_encoder = JsonCustomEncoder
 
 def _build_cors_preflight_response():
     response = make_response()
@@ -113,9 +118,9 @@ def _create_cors_response():
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
-#The route function tells the application which URL should call the associated function.
+#The route function tells the application which API endpoint URL should call the associated function. 
 @app.route('/ts/v1', methods=['GET', 'OPTIONS'])
-def index():
+def get_data_to_plot():
     if request.method == "OPTIONS": # CORS preflight
             return _build_cors_preflight_response()
 
@@ -126,47 +131,59 @@ def index():
 
     mission = query_parameters.get('mission')
     system = query_parameters.get('system')
+    try:
+        sourceID = request.args['sourceID']
+    except:
+        sourceID = ''
+    try:
+        obsID = request.args['obsID']
+    except:
+        obsID = ''
     target_time_unit = query_parameters.get('target_time_unit')
     target_flux_unit = query_parameters.get('target_flux_unit')
-
     
-    if mission:
-        #select the mission access details
-        mission_access = mission_config(DATA_ACCESS, mission)
-        server_url = mission_access['server_url']
-        endpoint_path = mission_access['endpoint']
-        query_params = mission_access['query']
 
-        #check if there is an adql query necessary
-        if 'adql_info' in mission_access:
-            adql_info = mission_access['adql_info']
-            obsID = request.args['obsID']
-            prodType = request.args['prodType']
-            if 'obsID' in request.args:
-                id = adql_request(adql_info, obsID, prodType)
-            else:
-                raise Exception('obsID is mandatory for mission {}'.format(mission))
-        else:
-            adql_info = None
-            if 'sourceID' in request.args:
-                sourceID = request.args['sourceID']
-                id = sourceID
-            else:
-                raise Exception('sourceID is mandatory for mission {}'.format(mission))
+    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + system + sourceID + obsID 
+    print(key)
+    cached_data = cache.get(key)
+    if cached_data is None:
+        if mission:
+            #select the mission access details
+            mission_access = mission_config(DATA_ACCESS, mission)
+            server_url = mission_access['server_url']
+            endpoint_path = mission_access['endpoint']
+            query_params = mission_access['query']
 
-        # Construct the url string to request https server data
-        url_str = build_dp_url(server_url, endpoint_path, query_params)
+            #check if there is an adql query necessary
+            if 'adql_info' in mission_access:
+                adql_info = mission_access['adql_info']
+                
+                prodType = query_parameters['prodType']
+                if 'obsID' in query_parameters:
+                    id = adql_request(adql_info, obsID, prodType)
+                else:
+                    raise Exception('obsID is mandatory for mission {}'.format(mission))
+            else:
+                adql_info = None
+                if 'sourceID' in query_parameters:
+                    id = sourceID
+                else:
+                    raise Exception('sourceID is mandatory for mission {}'.format(mission))
+
+            # Construct the url string to request https server data
+            url_str = build_dp_url(server_url, endpoint_path, query_params)
+            
+            # Data request 
+            resp = dp_request(url_str, id)
         
-        # Data request 
-        resp = dp_request(url_str, id)
-       
-        # Data extraction
-        time, data = get_data(resp)
-   
+            # Data extraction
+            time, data = get_data(resp)
+            cache.set(key, [time, data])
+        else:
+            time = data = None
+            raise NotImplementedError("Error: No valid mission field provided. Please specify an mission registered in config.")
     else:
-        time = data = None
-        raise NotImplementedError("Error: No valid mission field provided. Please specify an mission registered in config.")
-
+        [time, data] = cached_data
     if not isinstance(time, list): 
         time = [time]
     else:
@@ -185,6 +202,8 @@ def index():
         d = DataProcess(mission, time, data, system)
     else:
         d = DataProcess(mission, time, data) 
+
+        
     if target_time_unit:
         d.convert_time(target_time_unit)# mjd
     if target_flux_unit:
@@ -194,6 +213,86 @@ def index():
     response.data = d.to_plotly();
     return response
 
+@app.route('/ts/v1/modifytime', methods=['GET', 'OPTIONS'])
+def convert_time():
+    if request.method == "OPTIONS": # CORS preflight
+            return _build_cors_preflight_response()
+
+    query_parameters = request.args
+
+    mission = query_parameters.get('mission')
+    system = query_parameters.get('system')
+    try:
+        sourceID = request.args['sourceID']
+    except:
+        sourceID = ''
+    try:
+        obsID = request.args['obsID']
+    except:
+        obsID = ''    
+    target_time_unit = query_parameters.get('target_time_unit')
+    
+    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + system + sourceID + obsID 
+    print(key)
+    cached_data = cache.get(key)
+    if cached_data is not None:
+        [time, data] = cached_data
+        if not isinstance(time, list): 
+            time = [time]
+        if system:
+            d = DataProcess(mission, time, data, system)
+        else:
+            d = DataProcess(mission, time, data) 
+
+        if target_time_unit:
+            d.convert_time(target_time_unit)# mjd
+        response = _create_cors_response()
+        response.data = d.to_plotly();
+        return response
+    else:
+        print('You need to run the caching endpoint before')
+        return
+    
+@app.route('/ts/v1/modifyflux', methods=['GET', 'OPTIONS'])
+def convert_flux():
+    if request.method == "OPTIONS": # CORS preflight
+            return _build_cors_preflight_response()
+
+    query_parameters = request.args
+
+    mission = query_parameters.get('mission')
+    system = query_parameters.get('system')
+    try:
+        sourceID = request.args['sourceID']
+    except:
+        sourceID = ''
+    try:
+        obsID = request.args['obsID']
+    except:
+        obsID = ''    
+    target_flux_unit = query_parameters.get('target_flux_unit')
+    
+    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + system + sourceID + obsID 
+    print(key)
+    cached_data = cache.get(key)
+    if cached_data is not None:
+        [time, data] = cached_data
+        if not isinstance(time, list): 
+            time = [time]
+        if system:
+            d = DataProcess(mission, time, data, system)
+        else:
+            d = DataProcess(mission, time, data) 
+
+        if target_flux_unit:
+            d.convert_flux(target_flux_unit)# mjd
+        response = _create_cors_response()
+        response.data = d.to_plotly();
+        return response
+    else:
+        print('You need to run the caching endpoint before')
+        return
+   
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port = 8000, threaded = True, debug = True)
     
@@ -206,6 +305,8 @@ sourceID = 'Gaia+DR3+4111834567779557376'
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy&system=VEGAMAG
+http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&system=VEGAMAG
+http://0.0.0.0:8000/ts/v1/modifytime?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=jd&system=VEGAMAG
 
 mission = 'jwst'
 sourceID = None,
@@ -214,3 +315,13 @@ prodType = 'x1dints'
 http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints
 http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints&target_time_unit=jd&target_flux_unit=Jy
 '''
+
+app.config["SECRET_KEY"] = "any random string"
+app.config["CACHE_TYPE"] = "SimpleCache" # better not use this type w. gunicorn
+cache = Cache(app)
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        cache.set("username", request.form["username"])
+    # to get value use cache.get("username")

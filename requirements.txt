@@ -8,6 +8,7 @@ regions
 reproject
 stdatamodels>=1.7.1
 flask
+flask_caching
 glom
 synphot
 pandas
