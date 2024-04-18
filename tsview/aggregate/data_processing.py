@@ -16,6 +16,9 @@ import json
 import plotly.graph_objects as go
 
 from tsview.aggregate.data_config import DATA_DICT 
+COLS = ['time', 'flux', 'flux_error']
+NEW_COLS = ['x', 'y', 'error_y']
+        
 
 
 def column_from_column_index(tbl, cid, data_dict, expr_dict):
@@ -273,6 +276,8 @@ def time_units(time):
     '''Function to return time equivalences in as set of strings'''
     exclude = {'cxcsec', 'datetime', 'gps', 'unix', 'unix_tai', 'ymdhms', 'datetime64'}
     list_of_units = set(list(map(str, time.FORMATS.keys()))) - exclude
+    # remove self
+    list_of_units.remove(time.format)
     return list(list_of_units)
 
 
@@ -285,6 +290,8 @@ class TimeSeries:
     flux_error: u.Quantity|None = field(default = None)
     id_col : np.ndarray|None = field(default = None)
     id:  str|None = field(default = None)
+    extra_col : u.Quantity|None = field(default = None)
+    extra:  str|None = field(default = None)
     
     def to_pandas(self):
         '''This method converts a QTable into a pandas DataFrame for organization'''
@@ -293,22 +300,28 @@ class TimeSeries:
         else:
             t = QTable([self.flux], names=['flux'])
         t['time'] = self.time.to_value(self.time.format) # workaround as QTable cannot convert mixin columns (time) to pandas Dataframe
+        if self.extra is not None:
+            t['extra'] = self.extra_col
         df = t.to_pandas()
         return df
     
     def to_json(self):
         '''This method composes the output pandas DataFrame to a json representation using groupby on cid or directly converts to string'''
+        if self.extra is not None:
+            COLS.append('extra')
+            NEW_COLS.append('z')
+            
         df = self.to_pandas()
         #include cid column in pandas df
         if len(self.id_col) == len(self.flux):
             df[self.id] = self.id_col.astype('U13')
             #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
-            df_g = df.groupby(self.id)[['time', 'flux', 'flux_error']].agg(list).rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_json(orient='index')
+            df_g = df.groupby(self.id)[COLS].agg(list).rename(columns=dict(zip(COLS, NEW_COLS))).to_json(orient='index')
             return df_g
         elif len(self.id_col) == 1:
-            return json.dumps({self.id_col[0]: df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_dict(orient='list')})
+            return json.dumps({self.id_col[0]: df.rename(columns=dict(zip(COLS, NEW_COLS))).to_dict(orient='list')})
         else:
-            return json.dumps(df.rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'}).to_dict(orient='list'))
+            return json.dumps(df.rename(columns=dict(zip(COLS, NEW_COLS))).to_dict(orient='list'))
         
 
 
@@ -319,6 +332,7 @@ class DataProcess:
     time_collection: list[Time]
     table_collection: list[Table]
     system: str|None = field(default = None) #init=False)
+    cextra: str|None = field(init=False)
     cid: str|None = field(init=False)
     multi: str|None = field(init=False)
     time_format: str = field(init=False)
@@ -347,6 +361,10 @@ class DataProcess:
             [self.multi] = glom.glom(graphic_dict, '**.multi')
         except:
             self.multi = None
+        try:
+            [self.cextra] = glom.glom(graphic_dict, '**.cextra')
+        except:
+            self.cextra = None
 
         [self.y_colname] = glom.glom(graphic_dict, '**.y.colname')
         try:
@@ -356,18 +374,37 @@ class DataProcess:
             
         if self.err_y_colname:
             if self.cid:
-                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+                if self.cextra:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                else:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
             elif self.multi:
-                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]
+                if self.cextra:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                else:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]
             else:
-                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                if self.cextra:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                else:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity) for time, table in zip(self.time_collection, self.table_collection)]
         else:
             if self.cid:
-                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+                if self.cextra:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                else:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
             elif self.multi:
-                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]                
+                if self.cextra:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                else: 
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]                
             else:
-                self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
+                if self.cextra:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname, table[self.cextra].quantity].unit, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                else:
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname, table[self.cextra].quantity].unit) for time, table in zip(self.time_collection, self.table_collection)]
+                
         self.time_format = self.time_collection[-1].format
         self.alt_time_format = time_units(self.timeseries[-1].time)
         self.time_scale = self.time_collection[-1].scale
@@ -410,9 +447,13 @@ class DataProcess:
         return scatter
 
     def to_plotly(self) -> str:
+        '''Function to generate the plotly.Figure object using graph_object'''
+        if self.cextra is not None:
+            COLS.append('extra')
+            NEW_COLS.append('z')
         fig = go.Figure()
         for timeseries in self.timeseries:
-            df = timeseries.to_pandas().rename(columns={'time': 'x', 'flux': 'y', 'flux_error': 'error_y'})
+            df = timeseries.to_pandas().rename(columns=dict(zip(COLS, NEW_COLS)))
             if len(timeseries.id_col) == len(timeseries.flux):
                 df[timeseries.id] = timeseries.id_col.astype('U13')
                 #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
@@ -497,10 +538,12 @@ if __name__ == '__main__':
     time, data = ts_fits_reader(os.path.join(DATADIR, filename))
     new_data = [tbl['WAVELENGTH', 'FLUX', 'FLUX_ERROR'] for tbl in data]
     d = DataProcess('jwst', time, new_data, 'VEGAMAG')
+    print(d.timeseries[0].extra_col)
     d.convert_time('jd')
     print(d.to_json())
     d.convert_flux(u.mJy)
     print(d.to_plotly())
+    print(d.timeseries[0].extra)
     pass
     
     
