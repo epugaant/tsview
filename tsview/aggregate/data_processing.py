@@ -16,10 +16,11 @@ import json
 import plotly.graph_objects as go
 
 from tsview.aggregate.data_config import DATA_DICT 
+
+
 COLS = ['time', 'flux', 'flux_error']
 NEW_COLS = ['x', 'y', 'error_y']
-        
-
+    
 
 def column_from_column_index(tbl, cid, data_dict, expr_dict):
     '''Function to return a new column and update by rows of a cid (e.g. band), and have the entire table sorted according to the cid values'''
@@ -44,7 +45,7 @@ def column_from_index(tbl, index, data_dict, expr_dict):
     target =  glom.glom(data_dict, expr_dict.format(index))
     [val] = glom.flatten(target, levels=(expr_dict.count('**') - 1))
     tbl['tmp_col'] = val
-    tbl.sort('tmp_col')
+    #tbl.sort('tmp_col')
     new_col = tbl['tmp_col']
     tbl.remove_column('tmp_col')
     return new_col
@@ -375,35 +376,35 @@ class DataProcess:
         if self.err_y_colname:
             if self.cid:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
                     self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
             elif self.multi:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
                     self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]
             else:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
                     self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity) for time, table in zip(self.time_collection, self.table_collection)]
         else:
             if self.cid:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
                     self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
             elif self.multi:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else: 
                     self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]                
             else:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname, table[self.cextra].quantity].unit, table[self.cextra].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cextra].quantity, self.cextra ) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname, table[self.cextra].quantity].unit) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
                 
         self.time_format = self.time_collection[-1].format
         self.alt_time_format = time_units(self.timeseries[-1].time)
@@ -440,16 +441,27 @@ class DataProcess:
         return json.dumps(dict(zip(list(str(x) for x in range(len(self.timeseries))), [json.loads(timeseries.to_json()) for timeseries in self.timeseries]))) 
         '''Method to re-structure data by index ['band', 'instrument']'''
 
-    def create_scatter(self, x, y, error_y, index=None) -> go.Scatter:
+    def create_scatter(self, x, y, error_y, index=None, z=None) -> go.Scatter:
         scatter = go.Scatter(x=x, y=y, error_y=error_y, name=index)
         scatter.mode = 'markers'
         scatter.hovertemplate = r'%{yaxis.title.text}: %{y}<br>%{xaxis.title.text}: %{x}'
+        if z:
+            scatter.marker=dict(
+                cmax=max(z),
+                cmin=min(z),
+                color=z,
+                colorbar=dict(
+                    title='cextra'
+                ),
+                colorscale="Turbo"
+            )
         return scatter
+    
 
-    def to_plotly(self) -> str:
+    def to_plotly(self, time=True) -> str:
         '''Function to generate the plotly.Figure object using graph_object'''
         if self.cextra is not None:
-            COLS.append('extra')
+            COLS.append('extra_col')
             NEW_COLS.append('z')
         fig = go.Figure()
         for timeseries in self.timeseries:
@@ -458,8 +470,13 @@ class DataProcess:
                 df[timeseries.id] = timeseries.id_col.astype('U13')
                 #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
                 for index, df_group in df.groupby(timeseries.id):
-                    x = df_group.x
+                    x = df_group.x 
                     y = df_group.y
+                    if self.cextra:
+                        z = df_group.z
+                    else:
+                        tbl = Table([timeseries.id_col], names=[timeseries.id])
+                        z = column_factory(tbl, 'lamb', DATA_DICT, d.system, '**.{{}}.**.{0}.**.{1}', d.cid, d.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                     if timeseries.flux_error is None:
                         error_y = None
                     else:
@@ -467,10 +484,15 @@ class DataProcess:
                                 type='data', # value of error bar given in data coordinates
                                 array=df_group.error_y,
                                 visible=True)
-                    fig.add_trace(self.create_scatter(x, y, error_y, index)) 
+                    fig.add_trace(self.create_scatter(x, y, error_y, index)) if time else fig.add_trace(self.create_scatter(z, y, error_y))
             elif len(timeseries.id_col) == 1: 
-                x = df.x
+                x = df.x 
                 y = df.y
+                if self.cextra:
+                    z = df.z
+                else:
+                    tbl = Table([timeseries.id_col], names=[timeseries.id])
+                    z = column_factory(tbl, 'lamb', DATA_DICT, d.system, '**.{{}}.**.{0}.**.{1}', d.cid, d.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                 if timeseries.flux_error is None:
                     error_y = None
                 else:
@@ -478,10 +500,15 @@ class DataProcess:
                             type='data', # value of error bar given in data coordinates
                             array=df.error_y,
                             visible=True)
-                fig.add_trace(self.create_scatter(x, y, error_y, timeseries.id_col[0]))
+                fig.add_trace(self.create_scatter(x, y, error_y, timeseries.id_col[0])) if time else fig.add_trace(self.create_scatter(z, y, error_y))
             else:
-                x = df.x
+                x = df.x 
                 y = df.y
+                if self.cextra:
+                    z = df_group.z
+                else:
+                    tbl = Table([timeseries.id_col], names=[timeseries.id])
+                    z = column_factory(tbl, 'lamb', DATA_DICT, d.system, '**.{{}}.**.{0}.**.{1}', d.cid, d.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                 if timeseries.flux_error is None:
                     error_y = None
                 else:
@@ -489,9 +516,9 @@ class DataProcess:
                             type='data', # value of error bar given in data coordinates
                             array=df.error_y,
                             visible=True)
-                fig.add_trace(self.create_scatter(x, y, error_y))
+                fig.add_trace(self.create_scatter(x, y, error_y)) if time else fig.add_trace(self.create_scatter(z, y, error_y))
         fig.update_layout(legend_title_text = self.mission)
-        fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format, self.time_scale.upper()))
+        fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format, self.time_scale.upper())) if time else fig.update_xaxes(title_text='Wave [{0}]'.format(u.AA.to_string().upper()))
         fig.update_yaxes(title_text='{0} [{1}]'.format(self.y_colname.capitalize(), self.data_unit.to_string()))
         return fig.to_json(validate=True)
 
@@ -516,7 +543,9 @@ if __name__ == '__main__':
     print(d.timeseries[0].id_col)
     print(d.timeseries[0].flux)
     #print(d.to_json()) 
-    print(d.to_plotly())
+    print(d.to_plotly(time=True))
+    print(d.to_plotly(time=False)) #plotly wave vs flux
+
     # d.convert_time('mjd')
     # print(d.to_json()) 
     # d.convert_flux(u.mJy)
