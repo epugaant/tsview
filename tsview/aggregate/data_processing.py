@@ -476,7 +476,7 @@ class DataProcess:
                         z = df_group.z
                     else:
                         tbl = Table([timeseries.id_col], names=[timeseries.id])
-                        z = column_factory(tbl, 'lamb', DATA_DICT, d.system, '**.{{}}.**.{0}.**.{1}', d.cid, d.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                        z = column_factory(tbl, 'lamb', DATA_DICT, df_group.system, '**.{{}}.**.{0}.**.{1}', df_group.cid, df_group.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                     if timeseries.flux_error is None:
                         error_y = None
                     else:
@@ -492,7 +492,7 @@ class DataProcess:
                     z = df.z
                 else:
                     tbl = Table([timeseries.id_col], names=[timeseries.id])
-                    z = column_factory(tbl, 'lamb', DATA_DICT, d.system, '**.{{}}.**.{0}.**.{1}', d.cid, d.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                    z = column_factory(tbl, 'lamb', DATA_DICT, df.system, '**.{{}}.**.{0}.**.{1}', df.cid, df.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                 if timeseries.flux_error is None:
                     error_y = None
                 else:
@@ -505,10 +505,10 @@ class DataProcess:
                 x = df.x 
                 y = df.y
                 if self.cextra:
-                    z = df_group.z
+                    z = df.z
                 else:
                     tbl = Table([timeseries.id_col], names=[timeseries.id])
-                    z = column_factory(tbl, 'lamb', DATA_DICT, d.system, '**.{{}}.**.{0}.**.{1}', d.cid, d.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                    z = column_factory(tbl, 'lamb', DATA_DICT, df.system, '**.{{}}.**.{0}.**.{1}', df.cid, df.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                 if timeseries.flux_error is None:
                     error_y = None
                 else:
