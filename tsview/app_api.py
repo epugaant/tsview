@@ -210,7 +210,7 @@ def get_data_to_plot():
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
 
     response = _create_cors_response()
-    response.data = d.to_plotly();
+    response.data = d.to_plotly(time=True);
     return response
 
 @app.route('/ts/v1/modifytime', methods=['GET', 'OPTIONS'])

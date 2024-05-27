@@ -461,7 +461,7 @@ class DataProcess:
     def to_plotly(self, time=True) -> str:
         '''Function to generate the plotly.Figure object using graph_object'''
         if self.cextra is not None:
-            COLS.append('extra_col')
+            COLS.append('extra')
             NEW_COLS.append('z')
         fig = go.Figure()
         for timeseries in self.timeseries:
@@ -476,7 +476,7 @@ class DataProcess:
                         z = df_group.z
                     else:
                         tbl = Table([timeseries.id_col], names=[timeseries.id])
-                        z = column_factory(tbl, 'lamb', DATA_DICT, df_group.system, '**.{{}}.**.{0}.**.{1}', df_group.cid, df_group.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                        z = column_factory(tbl, 'lamb', DATA_DICT, self.system, '**.{{}}.**.{0}.**.{1}', self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                     if timeseries.flux_error is None:
                         error_y = None
                     else:
@@ -492,7 +492,7 @@ class DataProcess:
                     z = df.z
                 else:
                     tbl = Table([timeseries.id_col], names=[timeseries.id])
-                    z = column_factory(tbl, 'lamb', DATA_DICT, df.system, '**.{{}}.**.{0}.**.{1}', df.cid, df.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                    z = column_factory(tbl, 'lamb', DATA_DICT, self.system, '**.{{}}.**.{0}.**.{1}', self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                 if timeseries.flux_error is None:
                     error_y = None
                 else:
@@ -508,7 +508,7 @@ class DataProcess:
                     z = df.z
                 else:
                     tbl = Table([timeseries.id_col], names=[timeseries.id])
-                    z = column_factory(tbl, 'lamb', DATA_DICT, df.system, '**.{{}}.**.{0}.**.{1}', df.cid, df.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                    z = column_factory(tbl, 'lamb', DATA_DICT, self.system, '**.{{}}.**.{0}.**.{1}', self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                 if timeseries.flux_error is None:
                     error_y = None
                 else:
@@ -546,16 +546,16 @@ if __name__ == '__main__':
     print(d.to_plotly(time=True))
     print(d.to_plotly(time=False)) #plotly wave vs flux
 
-    # d.convert_time('mjd')
-    # print(d.to_json()) 
-    # d.convert_flux(u.mJy)
-    # print(d.to_json())  
-    # d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG')  
-    # d.convert_flux(u.mJy)
-    # print(d.timeseries[0].flux)
-    # d2 = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB')
-    # d2.convert_flux(u.mJy)
-    # print(d2.timeseries[0].flux)
+    d.convert_time('mjd')
+    print(d.to_json()) 
+    d.convert_flux(u.mJy)
+    print(d.to_json())  
+    d = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'VEGAMAG')  
+    d.convert_flux(u.mJy)
+    print(d.timeseries[0].flux)
+    d2 = DataProcess('gaia', [tbl['time']], [tbl['source_id', 'band', 'mag', 'flux', 'flux_error']], 'AB')
+    d2.convert_flux(u.mJy)
+    print(d2.timeseries[0].flux)
     
     tbl2 =  Table.read('/Users/epuga/ESDC/TSViz/data/gaia/swo/Gaia DR3 4057091150787104896_ALL_INDIVIDUAL_fits/EPOCH_PHOTOMETRY-Gaia DR3 4057091150787104896.fits', astropy_native=True)
     
@@ -568,10 +568,10 @@ if __name__ == '__main__':
     new_data = [tbl['WAVELENGTH', 'FLUX', 'FLUX_ERROR'] for tbl in data]
     d = DataProcess('jwst', time, new_data, 'VEGAMAG')
     print(d.timeseries[0].extra_col)
-    d.convert_time('jd')
+    #d.convert_time('jd')
     print(d.to_json())
-    d.convert_flux(u.mJy)
-    print(d.to_plotly())
+    #d.convert_flux(u.mJy)
+    print(d.to_plotly(time=False))
     print(d.timeseries[0].extra)
     pass
     
