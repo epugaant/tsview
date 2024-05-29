@@ -143,7 +143,7 @@ def get_data_to_plot():
     target_flux_unit = query_parameters.get('target_flux_unit')
     
 
-    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + system + sourceID + obsID 
+    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + sourceID + obsID 
     print(key)
     cached_data = cache.get(key)
     if cached_data is None:
@@ -222,6 +222,7 @@ def convert_time():
 
     mission = query_parameters.get('mission')
     system = query_parameters.get('system')
+    
     try:
         sourceID = request.args['sourceID']
     except:
@@ -232,7 +233,7 @@ def convert_time():
         obsID = ''    
     target_time_unit = query_parameters.get('target_time_unit')
     
-    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + system + sourceID + obsID 
+    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + sourceID + obsID 
     print(key)
     cached_data = cache.get(key)
     if cached_data is not None:
@@ -262,6 +263,8 @@ def convert_flux():
 
     mission = query_parameters.get('mission')
     system = query_parameters.get('system')
+    time_view = query_parameters.get('timeView')
+    
     try:
         sourceID = request.args['sourceID']
     except:
@@ -272,7 +275,7 @@ def convert_flux():
         obsID = ''    
     target_flux_unit = query_parameters.get('target_flux_unit')
     
-    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + system + sourceID + obsID 
+    key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + sourceID + obsID 
     print(key)
     cached_data = cache.get(key)
     if cached_data is not None:
@@ -287,7 +290,7 @@ def convert_flux():
         if target_flux_unit:
             d.convert_flux(target_flux_unit)# mjd
         response = _create_cors_response()
-        response.data = d.to_plotly();
+        response.data = d.to_plotly(time=time_view);
         return response
     else:
         print('You need to run the caching endpoint before')
@@ -307,6 +310,7 @@ http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&tar
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy&system=VEGAMAG
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&system=VEGAMAG
 http://0.0.0.0:8000/ts/v1/modifytime?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=jd&system=VEGAMAG
+http://0.0.0.0:8000/ts/v1/modifyflux?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_flux_unit=Jy&system=VEGAMAG
 
 mission = 'jwst'
 sourceID = None,
@@ -314,6 +318,7 @@ obsID = 'jw02783-o002_t001_miri_p750l-slitlessprism'
 prodType = 'x1dints' 
 http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints
 http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints&target_time_unit=jd&target_flux_unit=Jy
+http://0.0.0.0:8000/ts/v1/modifyflux?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&target_flux_unit=Jy&timeView=True
 '''
 
 app.config["SECRET_KEY"] = "any random string"
