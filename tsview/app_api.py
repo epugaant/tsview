@@ -62,7 +62,7 @@ def dp_request(url_str, id):
     url = url_str.format(id)
     #Get response from API
     try:
-        resp = requests.get(url, timeout=1, verify=True)
+        resp = requests.get(url, timeout=20, verify=True)
         resp.raise_for_status()
     except requests.exceptions.HTTPError as errh:
         print("HTTP Error")
@@ -131,6 +131,9 @@ def get_data_to_plot():
 
     mission = query_parameters.get('mission')
     system = query_parameters.get('system')
+    time_view_parameter = query_parameters.get('timeView')
+    time_view = True if time_view_parameter == None or time_view_parameter == 'True' or time_view_parameter == 'true' else False
+
     try:
         sourceID = request.args['sourceID']
     except:
@@ -147,6 +150,7 @@ def get_data_to_plot():
     print(key)
     cached_data = cache.get(key)
     if cached_data is None:
+        print('Data not cached yet. Requesting data from server.')
         if mission:
             #select the mission access details
             mission_access = mission_config(DATA_ACCESS, mission)
@@ -183,6 +187,7 @@ def get_data_to_plot():
             time = data = None
             raise NotImplementedError("Error: No valid mission field provided. Please specify an mission registered in config.")
     else:
+        print('Data already cached. Using cached data.')
         [time, data] = cached_data
     if not isinstance(time, list): 
         time = [time]
@@ -210,7 +215,7 @@ def get_data_to_plot():
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
 
     response = _create_cors_response()
-    response.data = d.to_plotly(time=True);
+    response.data = d.to_plotly(time=time_view);
     return response
 
 @app.route('/ts/v1/modifytime', methods=['GET', 'OPTIONS'])
@@ -263,7 +268,8 @@ def convert_flux():
 
     mission = query_parameters.get('mission')
     system = query_parameters.get('system')
-    time_view = query_parameters.get('timeView')
+    time_view_parameter = query_parameters.get('timeView')
+    time_view = True if time_view_parameter == None or time_view_parameter == 'True' or time_view_parameter == 'true' else False
     
     try:
         sourceID = request.args['sourceID']
