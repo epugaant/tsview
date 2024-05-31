@@ -475,7 +475,7 @@ class DataProcess:
                     if self.cextra:
                         z = df_group.z
                     else:
-                        tbl = Table([timeseries.id_col], names=[timeseries.id])
+                        tbl = Table([timeseries.id_col.data], names=[timeseries.id])
                         z = column_factory(tbl, 'lamb', DATA_DICT, self.system, '**.{{}}.**.{0}.**.{1}', self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                     if timeseries.flux_error is None:
                         error_y = None
@@ -570,7 +570,7 @@ if __name__ == '__main__':
     print(d.timeseries[0].extra_col)
     #d.convert_time('jd')
     print(d.to_json())
-    #d.convert_flux(u.mJy)
+    d.convert_flux(u.mJy)
     print(d.to_plotly(time=False))
     print(d.timeseries[0].extra)
     pass

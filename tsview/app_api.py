@@ -18,6 +18,9 @@ from tsview.io.fits_parser import ts_fits_reader
 from tsview.io.vo_parser import ts_votable_reader
 from tsview.aggregate.data_processing import DataProcess
 
+TRUE_STR = ("yes", "true", "t", "1")
+FALSE_STR = ("no", "false", "f", "0")
+
 cacheConfig = {
     "DEBUG": True,          # some Flask specific configs
     "CACHE_TYPE": "SimpleCache",  # Flask-Caching related configs
@@ -28,6 +31,15 @@ app = Flask(__name__)
 app.json_encoder = JsonCustomEncoder
 app.config.from_mapping(cacheConfig)
 cache = Cache(app)
+
+def str2bool(val):
+    val = val.lower()
+    if val in TRUE_STR:
+        return True
+    elif val in FALSE_STR:
+        return False
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 def mission_config(data_access, mission):
     '''Return the single dictionary corresponding to the mission'''
@@ -210,7 +222,7 @@ def get_data_to_plot():
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
 
     response = _create_cors_response()
-    response.data = d.to_plotly(time=True);
+    response.data = d.to_plotly(time=True)
     return response
 
 @app.route('/ts/v1/modifytime', methods=['GET', 'OPTIONS'])
@@ -248,7 +260,7 @@ def convert_time():
         if target_time_unit:
             d.convert_time(target_time_unit)# mjd
         response = _create_cors_response()
-        response.data = d.to_plotly();
+        response.data = d.to_plotly()
         return response
     else:
         print('You need to run the caching endpoint before')
@@ -275,6 +287,7 @@ def convert_flux():
         obsID = ''    
     target_flux_unit = query_parameters.get('target_flux_unit')
     
+    
     key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + sourceID + obsID 
     print(key)
     cached_data = cache.get(key)
@@ -288,9 +301,9 @@ def convert_flux():
             d = DataProcess(mission, time, data) 
 
         if target_flux_unit:
-            d.convert_flux(target_flux_unit)# mjd
+            d.convert_flux(u.Unit(target_flux_unit))# mjd 
         response = _create_cors_response()
-        response.data = d.to_plotly(time=time_view);
+        response.data = d.to_plotly(time=str2bool(time_view))
         return response
     else:
         print('You need to run the caching endpoint before')
@@ -311,6 +324,8 @@ http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&tar
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&system=VEGAMAG
 http://0.0.0.0:8000/ts/v1/modifytime?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=jd&system=VEGAMAG
 http://0.0.0.0:8000/ts/v1/modifyflux?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_flux_unit=Jy&system=VEGAMAG
+
+http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia%20DR3%203643046442207745280&target_time_unit=jd&target_flux_unit=electron%20/%20s&timeView=true
 
 mission = 'jwst'
 sourceID = None,
