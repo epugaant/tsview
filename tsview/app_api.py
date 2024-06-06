@@ -16,7 +16,7 @@ from tsview.access_config import DATA_ACCESS
 
 from tsview.io.fits_parser import ts_fits_reader
 from tsview.io.vo_parser import ts_votable_reader
-from tsview.aggregate.data_processing import DataProcess
+from tsview.aggregate.data_processing import DataProcess, equivalent_units
 
 TRUE_STR = ("yes", "true", "t", "1")
 FALSE_STR = ("no", "false", "f", "0")
@@ -143,8 +143,7 @@ def get_data_to_plot():
 
     mission = query_parameters.get('mission')
     system = query_parameters.get('system')
-    time_view_parameter = query_parameters.get('timeView')
-    time_view = True if time_view_parameter == None or time_view_parameter == 'True' or time_view_parameter == 'true' else False
+    time_view = query_parameters.get('timeView')
 
     try:
         sourceID = request.args['sourceID']
@@ -225,9 +224,13 @@ def get_data_to_plot():
         d.convert_time(target_time_unit)# mjd
     if target_flux_unit:
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
+    
+    #WARNING: functional code to get alt_data_unit for instrumental units
+    if not d.alt_data_unit:
+        d.alt_data_unit =  equivalent_units(u.mJy.to_string()) + ['mJy']
 
     response = _create_cors_response()
-    response.data = d.to_plotly(time=True)
+    response.data = d.to_plotly(time=str2bool(time_view))
     return response
 
 @app.route('/ts/v1/modifytime', methods=['GET', 'OPTIONS'])
@@ -320,7 +323,7 @@ if __name__ == '__main__':
     
 #http://0.0.0.0:8000
 
-'''# User parameters, via Rest API
+'''# User parameters, via API
 mission = 'gaia'
 sourceID = 'Gaia+DR3+4111834567779557376'
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376

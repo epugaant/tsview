@@ -522,7 +522,7 @@ class DataProcess:
         fig.update_yaxes(title_text='{0} [{1}]'.format(self.y_colname.capitalize(), self.data_unit.to_string()))
 
         plotly_json = fig.to_json(validate=True)
-        import json
+        
         json_dictionary = json.loads(plotly_json)
         json_dictionary['alt_time_units'] = self.alt_time_format
         json_dictionary['alt_flux_units'] = self.alt_data_unit
