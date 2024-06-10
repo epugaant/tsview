@@ -222,7 +222,8 @@ def get_data_to_plot():
         
     if target_time_unit:
         d.convert_time(target_time_unit)# mjd
-    if target_flux_unit:
+    #WARNING: ad-hoc code to skip instrumental units for Gaia
+    if target_flux_unit and target_flux_unit not in ("electron/s"):
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
     
     #WARNING: functional code to get alt_data_unit for instrumental units
@@ -326,10 +327,13 @@ if __name__ == '__main__':
 '''# User parameters, via API
 mission = 'gaia'
 sourceID = 'Gaia+DR3+4111834567779557376'
+native units
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376
+calibrated units
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy&system=VEGAMAG
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&system=VEGAMAG
+
 http://0.0.0.0:8000/ts/v1/modifytime?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=jd&system=VEGAMAG
 http://0.0.0.0:8000/ts/v1/modifyflux?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_flux_unit=Jy&system=VEGAMAG
 
