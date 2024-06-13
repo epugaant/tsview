@@ -223,7 +223,7 @@ def get_data_to_plot():
     if target_time_unit:
         d.convert_time(target_time_unit)# mjd
     #WARNING: ad-hoc code to skip instrumental units for Gaia
-    if target_flux_unit and target_flux_unit not in ("electron/s"):
+    if target_flux_unit and target_flux_unit.strip() not in ("electron/s"):
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
     
     #WARNING: functional code to get alt_data_unit for instrumental units
