@@ -1,0 +1,150 @@
+<VOTABLE xmlns="http://www.ivoa.net/xml/VOTable/v1.3"
+		version="1.3">
+   <RESOURCE>
+    <TIMESYS ID="ts" refposition="BARYCENTER" timeorigin="0" timescale="TCB"/>
+    <TABLE name="ndpohaahtsea">
+      <FIELD ID="obs_time" name="obs_time" datatype="double" unit="d"
+      	ref="ts" ucd="time.epoch"/>
+      <FIELD ID="flux" datatype="float" name="flux" 
+      	ucd="phot.flux;em.opt.V" unit="1/s"/>
+      <FIELD ID="label" datatype="char" name="label"/>
+      <DATA>
+        <TABLEDATA><TR><TD>2450000.00032</TD><TD>800</TD><TD>A</TD></TR>
+<TR><TD>2450000.00048</TD><TD>800</TD><TD>A</TD></TR>
+<TR><TD>2450000.00064</TD><TD>800</TD><TD>A</TD></TR>
+<TR><TD>2450000.0008</TD><TD>800</TD><TD>A</TD></TR>
+<TR><TD>2450000.00048</TD><TD>784</TD><TD>A</TD></TR>
+<TR><TD>2450000.00048</TD><TD>768</TD><TD>A</TD></TR>
+<TR><TD>2450000.00048</TD><TD>752</TD><TD>A</TD></TR>
+<TR><TD>2450000.00048</TD><TD>736</TD><TD>A</TD></TR>
+<TR><TD>2450000.00048</TD><TD>720</TD><TD>A</TD></TR>
+<TR><TD>2450000.00112</TD><TD>800</TD><TD>A</TD></TR>
+<TR><TD>2450000.00112</TD><TD>784</TD><TD>A</TD></TR>
+<TR><TD>2450000.00112</TD><TD>768</TD><TD>A</TD></TR>
+<TR><TD>2450000.00112</TD><TD>752</TD><TD>A</TD></TR>
+<TR><TD>2450000.00112</TD><TD>736</TD><TD>A</TD></TR>
+<TR><TD>2450000.00112</TD><TD>720</TD><TD>A</TD></TR>
+<TR><TD>2450000.00144</TD><TD>720</TD><TD>A</TD></TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+   <RESOURCE>
+    <TIMESYS ID="ts" refposition="BARYCENTER" timeorigin="MJD-origin" timescale="TCB"/>
+    <TABLE name="ndpohaahtsea">
+      <FIELD ID="obs_time" name="obs_time" datatype="double" unit="yr"
+      	ref="ts" ucd="time.epoch"/>
+      <FIELD ID="flux" datatype="float" name="flux" 
+      	ucd="phot.flux;em.opt.V" unit="1/s"/>
+      <FIELD ID="label" datatype="char" name="label"/>
+      <DATA>
+        <TABLEDATA><TR><TD>136.891174374</TD><TD>736</TD><TD>B</TD></TR>
+<TR><TD>136.891174374</TD><TD>752</TD><TD>B</TD></TR>
+<TR><TD>136.891174374</TD><TD>768</TD><TD>B</TD></TR>
+<TR><TD>136.891174374</TD><TD>784</TD><TD>B</TD></TR>
+<TR><TD>136.891174374</TD><TD>800</TD><TD>B</TD></TR>
+<TR><TD>136.891174812</TD><TD>784</TD><TD>B</TD></TR>
+<TR><TD>136.89117525</TD><TD>768</TD><TD>B</TD></TR>
+<TR><TD>136.891175688</TD><TD>784</TD><TD>B</TD></TR>
+<TR><TD>136.891176126</TD><TD>800</TD><TD>B</TD></TR>
+<TR><TD>136.891176126</TD><TD>784</TD><TD>B</TD></TR>
+<TR><TD>136.891176126</TD><TD>768</TD><TD>B</TD></TR>
+<TR><TD>136.891176126</TD><TD>752</TD><TD>B</TD></TR>
+<TR><TD>136.891176126</TD><TD>736</TD><TD>B</TD></TR>
+<TR><TD>136.891176126</TD><TD>720</TD><TD>B</TD></TR>
+<TR><TD>136.891177002</TD><TD>800</TD><TD>B</TD></TR>
+<TR><TD>136.891177002</TD><TD>784</TD><TD>B</TD></TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+   <RESOURCE>
+    <TIMESYS ID="ts" refposition="GEOCENTER" timeorigin="2440587.5" timescale="TT"/>
+    <TABLE name="ndpohaahtsea">
+      <FIELD ID="obs_time" name="obs_time" datatype="double" unit="s"
+      	ref="ts" ucd="time.epoch"/>
+      <FIELD ID="flux" datatype="float" name="flux" 
+      	ucd="phot.flux;em.opt.V" unit="1/s"/>
+      <FIELD ID="label" datatype="char" name="label"/>
+      <DATA>
+        <TABLEDATA><TR><TD>813240660.149</TD><TD>768</TD><TD>C</TD></TR>
+<TR><TD>813240660.149</TD><TD>752</TD><TD>C</TD></TR>
+<TR><TD>813240660.149</TD><TD>736</TD><TD>C</TD></TR>
+<TR><TD>813240660.149</TD><TD>720</TD><TD>C</TD></TR>
+<TR><TD>813240673.973</TD><TD>800</TD><TD>C</TD></TR>
+<TR><TD>813240687.798</TD><TD>800</TD><TD>C</TD></TR>
+<TR><TD>813240701.622</TD><TD>800</TD><TD>C</TD></TR>
+<TR><TD>813240729.271</TD><TD>784</TD><TD>C</TD></TR>
+<TR><TD>813240729.271</TD><TD>768</TD><TD>C</TD></TR>
+<TR><TD>813240743.095</TD><TD>752</TD><TD>C</TD></TR>
+<TR><TD>813240756.919</TD><TD>752</TD><TD>C</TD></TR>
+<TR><TD>813240743.095</TD><TD>800</TD><TD>C</TD></TR>
+<TR><TD>813240756.919</TD><TD>800</TD><TD>C</TD></TR>
+<TR><TD>813240770.744</TD><TD>784</TD><TD>C</TD></TR>
+<TR><TD>813240770.744</TD><TD>736</TD><TD>C</TD></TR>
+<TR><TD>813240494.257</TD><TD>704</TD><TD>C</TD></TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+   <RESOURCE>
+    <TIMESYS ID="ts" refposition="HELIOCENTER" timescale="UTC"/>
+    <TABLE name="ndpohaahtsea">
+      <FIELD ID="obs_time" name="obs_time" datatype="char" arraysize="*" xtype="timestamp"
+      	ref="ts" ucd="time.epoch"/>
+      <FIELD ID="flux" datatype="float" name="flux" 
+      	ucd="phot.flux;em.opt.V" unit="1/s"/>
+      <FIELD ID="label" datatype="char" name="label"/>
+      <DATA>
+        <TABLEDATA><TR><TD>1995-10-09T12:00:25.746</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:00:53.394</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:01:48.690</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:02:16.338</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:02:30.162</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:02:43.986</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:02:57.810</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:02:30.162</TD><TD>752</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:02:43.986</TD><TD>752</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:04:06.930</TD><TD>720</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:03:53.106</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:03:39.282</TD><TD>704</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:03:25.458</TD><TD>720</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:04:34.578</TD><TD>800</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:04:48.402</TD><TD>784</TD><TD>D</TD></TR>
+<TR><TD>1995-10-09T12:05:02.226</TD><TD>768</TD><TD>D</TD></TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+   <RESOURCE>
+    <TIMESYS ID="ts" refposition="GEOCENTER" timescale="TCG"/>
+    <TABLE name="ndpohaahtsea">
+      <FIELD ID="obs_time" name="obs_time" datatype="double" unit="yr"
+      	ref="ts" ucd="time.epoch"/>
+      <FIELD ID="flux" datatype="float" name="flux" 
+      	ucd="phot.flux;em.opt.V" unit="1/s"/>
+      <FIELD ID="label" datatype="char" name="label"/>
+      <DATA>
+        <TABLEDATA><TR><TD>1995.7700476</TD><TD>800</TD><TD>E</TD></TR>
+<TR><TD>1995.77004716</TD><TD>784</TD><TD>E</TD></TR>
+<TR><TD>1995.77004672</TD><TD>752</TD><TD>E</TD></TR>
+<TR><TD>1995.77004672</TD><TD>736</TD><TD>E</TD></TR>
+<TR><TD>1995.77004672</TD><TD>720</TD><TD>E</TD></TR>
+<TR><TD>1995.77004672</TD><TD>704</TD><TD>E</TD></TR>
+<TR><TD>1995.77004847</TD><TD>784</TD><TD>E</TD></TR>
+<TR><TD>1995.77004847</TD><TD>768</TD><TD>E</TD></TR>
+<TR><TD>1995.77004891</TD><TD>800</TD><TD>E</TD></TR>
+<TR><TD>1995.77004935</TD><TD>800</TD><TD>E</TD></TR>
+<TR><TD>1995.77004979</TD><TD>784</TD><TD>E</TD></TR>
+<TR><TD>1995.77004891</TD><TD>752</TD><TD>E</TD></TR>
+<TR><TD>1995.77004935</TD><TD>752</TD><TD>E</TD></TR>
+<TR><TD>1995.77004979</TD><TD>736</TD><TD>E</TD></TR>
+<TR><TD>1995.77004979</TD><TD>720</TD><TD>E</TD></TR>
+<TR><TD>1995.77004935</TD><TD>704</TD><TD>E</TD></TR>
+<TR><TD>1995.77004891</TD><TD>704</TD><TD>E</TD></TR>
+<TR><TD>1995.77004847</TD><TD>720</TD><TD>E</TD></TR>
+        </TABLEDATA>
+      </DATA>
+    </TABLE>
+  </RESOURCE>
+</VOTABLE>

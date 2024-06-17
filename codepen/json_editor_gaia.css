@@ -1,0 +1,30 @@
+.container{
+  display: inline-block;
+  width: 200px;
+  font-family: helvetica,sans-serif;
+  font-weight: 200;
+  vertical-align: top;
+}
+
+h3{
+  font-weight: 300;
+}
+
+#graphDiv{
+  height: 400px;
+  width: 400px;
+}
+
+h3>span{
+  color: #E74C3C;
+  font-weight: 400;
+  font-size: 80%;
+}
+
+.jsonName, .jsonChildren {
+    font-style: none !important;
+    line-height: 28px !important;
+    color: #444;
+    text-transform: lowercase;
+    
+}

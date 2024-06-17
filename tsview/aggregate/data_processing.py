@@ -484,7 +484,7 @@ class DataProcess:
                                 type='data', # value of error bar given in data coordinates
                                 array=df_group.error_y,
                                 visible=True)
-                    fig.add_trace(self.create_scatter(x, y, error_y, index)) if time else fig.add_trace(self.create_scatter(z, y, error_y))
+                    fig.add_trace(self.create_scatter(x, y, error_y, index)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index))
             elif len(timeseries.id_col) == 1: 
                 x = df.x 
                 y = df.y
@@ -500,7 +500,7 @@ class DataProcess:
                             type='data', # value of error bar given in data coordinates
                             array=df.error_y,
                             visible=True)
-                fig.add_trace(self.create_scatter(x, y, error_y, timeseries.id_col[0])) if time else fig.add_trace(self.create_scatter(z, y, error_y))
+                fig.add_trace(self.create_scatter(x, y, error_y, timeseries.id_col[0]), z=self.cextra) if time else fig.add_trace(self.create_scatter(z, y, error_y, timeseries.id_col[0]))
             else:
                 x = df.x 
                 y = df.y
