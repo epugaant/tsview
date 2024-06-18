@@ -273,10 +273,8 @@ def equivalent_units(unit_str):
 
 def time_units(time):
     '''Function to return time equivalences in as set of strings'''
-    exclude = {'cxcsec', 'datetime', 'gps', 'unix', 'unix_tai', 'ymdhms', 'datetime64'}
+    exclude = {'cxcsec', 'datetime', 'gps', 'unix', 'unix_tai', 'ymdhms', 'datetime64', 'isot', 'jyear_str', 'byear_str'}
     list_of_units = set(list(map(str, time.FORMATS.keys()))) - exclude
-    # remove self
-    list_of_units.remove(time.format)
     return list(list_of_units)
 
 
