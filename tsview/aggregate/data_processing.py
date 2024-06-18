@@ -445,7 +445,7 @@ class DataProcess:
         scatter = go.Scatter(x=x, y=y, error_y=error_y, name=index)
         scatter.mode = 'markers'
         scatter.hovertemplate = r'%{yaxis.title.text}: %{y}<br>%{xaxis.title.text}: %{x}'
-        if z:
+        if z is not None:
             scatter.marker=dict(
                 cmax=max(z),
                 cmin=min(z),
@@ -484,7 +484,7 @@ class DataProcess:
                                 type='data', # value of error bar given in data coordinates
                                 array=df_group.error_y,
                                 visible=True)
-                    fig.add_trace(self.create_scatter(x, y, error_y, index)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index))
+                    fig.add_trace(self.create_scatter(x, y, error_y, index=index)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index=index))
             elif len(timeseries.id_col) == 1: 
                 x = df.x 
                 y = df.y
@@ -500,7 +500,7 @@ class DataProcess:
                             type='data', # value of error bar given in data coordinates
                             array=df.error_y,
                             visible=True)
-                fig.add_trace(self.create_scatter(x, y, error_y, timeseries.id_col[0]), z=self.cextra) if time else fig.add_trace(self.create_scatter(z, y, error_y, timeseries.id_col[0]))
+                fig.add_trace(self.create_scatter(x, y, error_y, index=timeseries.id_col[0], z=z)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index=timeseries.id_col[0])) 
             else:
                 x = df.x 
                 y = df.y
