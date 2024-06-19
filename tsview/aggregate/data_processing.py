@@ -262,8 +262,6 @@ def equivalent_units(unit_str):
         list_of_units = list_of_units | {'mag({})'.format(val) for val in list_of_units if val in PHOT_SYS}
         # remove VEGA flux
         list_of_units.remove('VEGA')
-        # remove self
-        list_of_units.remove(unit_str)
     elif units.physical_type in ['length', 'frequency', 'wavenumber', 'energy']:  # spectral axis
         # prefer Hz over Bq and um over micron
         exclude = {'Bq', 'micron'}
@@ -271,14 +269,12 @@ def equivalent_units(unit_str):
             include_prefix_units=False, equivalencies=u.spectral()))) + ['um']) - exclude
     else:
         list_of_units = set([])
-    return list(list_of_units)
+    return sorted(list(list_of_units), key=str.casefold)
 
 def time_units(time):
     '''Function to return time equivalences in as set of strings'''
-    exclude = {'cxcsec', 'datetime', 'gps', 'unix', 'unix_tai', 'ymdhms', 'datetime64'}
-    list_of_units = set(list(map(str, time.FORMATS.keys()))) - exclude
-    # remove self
-    list_of_units.remove(time.format)
+    exclude = {'cxcsec', 'datetime', 'gps', 'unix', 'unix_tai', 'ymdhms', 'datetime64', 'isot', 'jyear_str', 'byear_str', 'fits'}
+    list_of_units = sorted(set(list(map(str, time.FORMATS.keys()))) - exclude, key=str.casefold)
     return list(list_of_units)
 
 
