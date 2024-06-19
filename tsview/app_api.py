@@ -154,6 +154,7 @@ def get_data_to_plot():
     except:
         obsID = ''
     target_time_unit = query_parameters.get('target_time_unit')
+    target_time_scale = query_parameters.get('target_time_scale')
     target_flux_unit = query_parameters.get('target_flux_unit')
     
 
@@ -222,6 +223,8 @@ def get_data_to_plot():
         
     if target_time_unit:
         d.convert_time(target_time_unit)# mjd
+    if target_time_scale:
+        d.convert_time_scale(target_time_scale)# tcb
     #WARNING: ad-hoc code to skip instrumental units for Gaia
     if target_flux_unit and target_flux_unit.strip() not in ("electron/s"):
         d.convert_flux(u.Unit(target_flux_unit))# u.mJy
@@ -253,6 +256,7 @@ def convert_time():
     except:
         obsID = ''    
     target_time_unit = query_parameters.get('target_time_unit')
+    target_time_scale = query_parameters.get('target_time_scale')
     
     key = ''.join(filter(None, (mission, sourceID, obsID)))# mission + sourceID + obsID 
     print(key)
@@ -268,6 +272,9 @@ def convert_time():
 
         if target_time_unit:
             d.convert_time(target_time_unit)# mjd
+        if target_time_scale:
+            d.convert_time_scale(target_time_scale)# tcb
+
         response = _create_cors_response()
         response.data = d.to_plotly()
         return response
@@ -331,6 +338,7 @@ native units
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376
 calibrated units
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy
+
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy&system=VEGAMAG
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&system=VEGAMAG
 
@@ -338,6 +346,7 @@ http://0.0.0.0:8000/ts/v1/modifytime?mission=gaia&sourceID=Gaia+DR3+411183456777
 http://0.0.0.0:8000/ts/v1/modifyflux?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_flux_unit=Jy&system=VEGAMAG
 
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia%20DR3%203643046442207745280&target_time_unit=jd&target_flux_unit=electron%20/%20s&timeView=true
+http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_time_scale=tdb&timeView=True
 
 mission = 'jwst'
 sourceID = None,

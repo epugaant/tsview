@@ -286,6 +286,7 @@ def time_units(time):
 class TimeSeries:
     time: u.Quantity
     time_format: str
+    time_scale: str 
     flux: u.Quantity
     data_unit: u
     flux_error: u.Quantity|None = field(default = None)
@@ -376,41 +377,47 @@ class DataProcess:
         if self.err_y_colname:
             if self.cid:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
             elif self.multi:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]
             else:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.err_y_colname].quantity) for time, table in zip(self.time_collection, self.table_collection)]
         else:
             if self.cid:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cid].value, self.cid) for time, table in zip(self.time_collection, self.table_collection)]
             elif self.multi:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi, table[self.cextra].quantity, self.cextra) for time, table in zip(self.time_collection, self.table_collection)]
                 else: 
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]                
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, np.array([table.meta[self.multi]], dtype='object'), self.multi) for time, table in zip(self.time_collection, self.table_collection)]                
             else:
                 if self.cextra:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cextra].quantity, self.cextra ) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit, table[self.cextra].quantity, self.cextra ) for time, table in zip(self.time_collection, self.table_collection)]
                 else:
-                    self.timeseries = [TimeSeries(time, time.format, table[self.y_colname].quantity, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
+                    self.timeseries = [TimeSeries(time, time.format, time.scale, table[self.y_colname].quantity, table[self.y_colname].unit) for time, table in zip(self.time_collection, self.table_collection)]
                 
         self.time_format = self.time_collection[-1].format
         self.alt_time_format = time_units(self.timeseries[-1].time)
         self.time_scale = self.time_collection[-1].scale
         self.data_unit = self.table_collection[-1][self.y_colname].unit
         self.alt_data_unit = equivalent_units(self.data_unit.to_string())
+    
+    def convert_time_scale (self, target_scale):
+        for i in range(len(self.timeseries)):
+            if self.timeseries[i].time_scale != target_scale:
+                self.timeseries[i].time= Time(self.timeseries[i].time, scale=target_scale, format=self.timeseries[i].time_format)
+        self.time_scale = target_scale
      
     def convert_time(self, target_unit): #perhaps a dataclass_transform
         for i in range(len(self.timeseries)):
@@ -442,6 +449,7 @@ class DataProcess:
         '''Method to re-structure data by index ['band', 'instrument']'''
 
     def create_scatter(self, x, y, error_y, index=None, z=None) -> go.Scatter:
+        '''function to create the scatter plot ouf of simple dataframe value (no quantities)'''
         scatter = go.Scatter(x=x, y=y, error_y=error_y, name=index)
         scatter.mode = 'markers'
         scatter.hovertemplate = r'%{yaxis.title.text}: %{y}<br>%{xaxis.title.text}: %{x}'
@@ -450,7 +458,7 @@ class DataProcess:
                 cmax=max(z),
                 cmin=min(z),
                 color=z,
-                colorbar=dict(title=self.cextra.title(), thickness=5, tickvals=[min(z), max(z)], ticktext=['{0} {1}'.format(min(z), z.units.to_string()), '{0} {1}'.format(max(z), z.units.to_string())], outlinewidth=0
+                colorbar=dict(title=self.cextra.title(), thickness=5, tickvals=[min(z), max(z)], ticktext=['{0:.2f} {1}'.format(min(z), self.timeseries[0].extra_col.unit.to_string().title()), '{0:.2f} {1}'.format(max(z), self.timeseries[0].extra_col.unit.to_string().title())], outlinewidth=0
                     ),
                 colorscale="Turbo"
             )
@@ -543,6 +551,7 @@ if __name__ == '__main__':
     #d.convert_time('jd')
     #print(d.to_json()) 
     d.convert_flux(u.mJy)
+    d.convert_time_scale('tdb')
     #print(d.to_json()) 
     print(d.timeseries[0].id_col)
     print(d.timeseries[0].flux)
