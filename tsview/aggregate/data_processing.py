@@ -450,9 +450,8 @@ class DataProcess:
                 cmax=max(z),
                 cmin=min(z),
                 color=z,
-                colorbar=dict(
-                    title=self.cextra.title()
-                ),
+                colorbar=dict(title=self.cextra.title(), thickness=5, tickvals=[min(z), max(z)], ticktext=['{0} {1}'.format(min(z), z.units.to_string()), '{0} {1}'.format(max(z), z.units.to_string())], outlinewidth=0
+                    ),
                 colorscale="Turbo"
             )
         return scatter
@@ -465,6 +464,8 @@ class DataProcess:
             NEW_COLS.append('z')
         fig = go.Figure()
         for timeseries in self.timeseries:
+            if self.cextra:
+                timeseries.extra_col = timeseries.extra_col.to(u.AA, equivalencies=u.spectral())
             df = timeseries.to_pandas().rename(columns=dict(zip(COLS, NEW_COLS)))
             if len(timeseries.id_col) == len(timeseries.flux):
                 df[timeseries.id] = timeseries.id_col.astype('U13')
@@ -518,7 +519,7 @@ class DataProcess:
                             visible=True)
                 fig.add_trace(self.create_scatter(x, y, error_y)) if time else fig.add_trace(self.create_scatter(z, y, error_y))
         fig.update_layout(legend_title_text = self.mission)
-        fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format, self.time_scale.upper())) if time else fig.update_xaxes(title_text='Wavelength [{0}]'.format(u.AA.to_string().title()))
+        fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format.upper(), self.time_scale.upper())) if time else fig.update_xaxes(title_text='Wavelength [{0}]'.format(u.AA.to_string().title()))
         fig.update_yaxes(title_text='{0} [{1}]'.format(self.y_colname.capitalize(), self.data_unit.to_string()))
 
         plotly_json = fig.to_json(validate=True)
