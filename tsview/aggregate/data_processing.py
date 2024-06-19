@@ -451,7 +451,7 @@ class DataProcess:
                 cmin=min(z),
                 color=z,
                 colorbar=dict(
-                    title='cextra'
+                    title=self.cextra.title()
                 ),
                 colorscale="Turbo"
             )
@@ -518,7 +518,7 @@ class DataProcess:
                             visible=True)
                 fig.add_trace(self.create_scatter(x, y, error_y)) if time else fig.add_trace(self.create_scatter(z, y, error_y))
         fig.update_layout(legend_title_text = self.mission)
-        fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format, self.time_scale.upper())) if time else fig.update_xaxes(title_text='Wave [{0}]'.format(u.AA.to_string().upper()))
+        fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format, self.time_scale.upper())) if time else fig.update_xaxes(title_text='Wavelength [{0}]'.format(u.AA.to_string().title()))
         fig.update_yaxes(title_text='{0} [{1}]'.format(self.y_colname.capitalize(), self.data_unit.to_string()))
 
         plotly_json = fig.to_json(validate=True)
