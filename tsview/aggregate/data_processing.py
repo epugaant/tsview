@@ -64,7 +64,7 @@ def convert_flux_by_wave(wave, flux, target_unit, vegaspec):
         for w in wave_uniq:
             flux_new = units.convert_flux(w, flux[np.where(np.isclose(wave.value, w))], target_unit, vegaspec=vegaspec)
             value = np.append(value, flux_new.value)
-        flux_final = u.Quantity(value, flux_new.unit)
+        flux_final = value * flux_new.unit
     return flux_final
 
 def fluxToMag(flux):
@@ -178,7 +178,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                     f_plus = convert_flux_by_wave(wave.quantity, f_plus, target_unit, vegaspec=vega)
                     #ef = abs(f_plus-f)
                     # For the VEGAMAG case, where the unit is not recognized
-                    ef = u.Quantity(abs(f_plus.value - f.value), f_plus.unit)          
+                    ef = abs(f_plus.value - f.value)*f_plus.unit          
         else:
             print('No flux zeropoint exists in the data_dict. We will do an approximation with convert_flux')
             #conversion using synphot conver_flux with model when VEGA photometric system
@@ -552,6 +552,7 @@ if __name__ == '__main__':
     print(d.timeseries[0].id_col)
     print(d.timeseries[0].flux)
     d.convert_flux(units.VEGAMAG)
+    d.convert_flux(u.ABmag)
     print(d.timeseries[0].id_col)
     print(d.timeseries[0].flux)
     #print(d.to_json()) 
