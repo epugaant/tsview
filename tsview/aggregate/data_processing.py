@@ -189,7 +189,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                 if fluxe_col in t.colnames:
                     msys_plus = t[flux_col].quantity + t[fluxe_col].quantity
                     f_plus = convert_flux_by_wave(wave.quantity, msys_plus, target_unit, vegaspec=vega)
-                    ef = abs(f_plus-f)
+                    ef = abs(f_plus.value-f.value) * f.unit
             else:
                 if glom.glom(data_dict, '**.zp'):
                      zp = column_factory(t, 'zp', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
@@ -209,8 +209,8 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                     minst_plus = minst + em.value * u.mag()
                     msys_plus = minst_plus + zp.quantity
                     f_plus = convert_flux_by_wave(wave.quantity, msys_plus, target_unit, vegaspec=vega)
-                    ef = abs(f_plus-f)
-    #if physical units are calibrated (e.g. mag(AB))
+                    ef = abs(f_plus.value-f.value) * f.unit
+    #if physical units are calibrated (e.g. mag(AB), Jy)
     else:
         wave = column_factory(t, 'lamb', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
         vega = SourceSpectrum.from_vega() 
@@ -218,7 +218,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
         if fluxe_col in t.colnames:
             msys_plus = t[flux_col].quantity + t[fluxe_col].quantity
             f_plus = convert_flux_by_wave(wave.quantity, msys_plus, target_unit, vegaspec=vega)
-            ef = abs(f_plus-f) 
+            ef = abs(f_plus.value-f.value) * f.unit # avoid creating a Quantity with magnitudes
                     
     if fluxe_col in t.colnames:
         return (f, ef)
