@@ -454,7 +454,11 @@ class DataProcess:
                 cmax=max(z),
                 cmin=min(z),
                 color=z,
-                colorbar=dict(title=self.cextra.title(), thickness=5, tickvals=[min(z), max(z)], ticktext=['{0:.2f} {1}'.format(min(z), self.timeseries[0].extra_col.unit.to_string().title()), '{0:.2f} {1}'.format(max(z), self.timeseries[0].extra_col.unit.to_string().title())], outlinewidth=0
+                colorbar=dict(title=self.cextra.title(), 
+                              thickness=5, tickvals=[min(z), max(z)], 
+                              xref= 'paper', xanchor='center', xpad = 20, 
+                              ticktext=['{0:.2f} {1}'.format(min(z), self.timeseries[0].extra_col.unit.to_string().title()), '{0:.2f} {1}'.format(max(z), self.timeseries[0].extra_col.unit.to_string().title())], 
+                              outlinewidth=0, ticklabelposition = 'inside top'
                     ),
                 colorscale="Turbo"
             )
