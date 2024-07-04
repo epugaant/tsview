@@ -18,5 +18,11 @@ DATA_ACCESS = [
         'PHASE':'RUN',
         'QUERY':'SELECT a.artifactid FROM  jwst.artifact AS a WHERE a.uri LIKE \'%{0}%.fits\' AND a.uri LIKE \'%{1}%\' ORDER BY a.filename DESC'
         }
+    },
+    {'mission': 'xmm',   
+     'server_url': 'https://nxsa.esac.esa.int',
+     'endpoint': 'nxsa-sl/servlet/data-action-aio',
+     'query': 'obsno={0}&sourceno={1}&extension=FTZ&level=PPS&instname=PN,M1,M2&name=SRCTSR&expflag=X',
+     # example url: 'https://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={0}&sourceno={1}&extension=FTZ&level=PPS&instname=PN,M1,M2&name=SRCTSR&expflag=X'
     }
     ]

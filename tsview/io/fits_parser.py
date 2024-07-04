@@ -40,10 +40,10 @@ def int_times_ext_to_time_arr(filename, scale=None):
 
     return time
 
-def extract1d_to_timeseries(filename, hdr, tinfo, ts_keys, scale=None, array_int_times = False):
+def extract1d_to_timeseries(filename, times, data, hdr, tinfo, ts_keys, scale=None, array_int_times = False):
     if scale is None:
         scale = 'TDB'.lower()
-    times, data = [], []
+    #times, data = [], []
     hdr_time = dict(filter(lambda i:i[0] in ts_keys, hdr.items())) 
     mask = tinfo['Name'] == 'EXTRACT1D'
     extver = tinfo['Ver'][mask].data.tolist()
@@ -60,8 +60,8 @@ def extract1d_to_timeseries(filename, hdr, tinfo, ts_keys, scale=None, array_int
 
     return times, data
 
-@timer_func
-def ts_fits_reader(filename):
+
+def ts_single_fits_reader(filename, times, data):
     """
     This serves as the FITS reader time series files within tsview. Based on kepler_fits_reader from astropy-timeseries. 
 
@@ -80,6 +80,7 @@ def ts_fits_reader(filename):
         time object and data for time series
 
     """
+    
     # Get fits structure info in a table
     finfo = fits.info(filename, output=False) # list of tuples
     tinfo = Table(rows=finfo, names=('No.', 'Name', 'Ver', 'Type', 'Cards', 'Dimensions', 'Format', '')) # Convert into table
@@ -113,13 +114,13 @@ def ts_fits_reader(filename):
             #     pass
             
             if 'EXTRACT1D' in tinfo['Name']:
-                times, data = extract1d_to_timeseries(filename, hdr, tinfo, MULTI_KEYWORDS+TIMESERIES_KEYWORDS, array_int_times = False)
+                times, data = extract1d_to_timeseries(filename, times, data, hdr, tinfo, MULTI_KEYWORDS+TIMESERIES_KEYWORDS, array_int_times = False)
             elif 'SCI'in tinfo['Name']:
                 # It is a rateints so the Type is ImageHDU and that is a cube to inspect in slices dimension?
                 # TODO: Consult with Javier as this may be the handshake to cubeviewer.
                 pass
         case other:
-            times, data = [], []
+            #times, data = [], []
             tbl = Table.read(filename, format='fits', astropy_native=True)
             if any(isinstance(col, Time) for col in tbl.itercols()):
                 for i, col in enumerate(tbl.itercols()): 
@@ -128,6 +129,15 @@ def ts_fits_reader(filename):
                 col.format = 'jd'
                 times.append(col)
                 tbl.remove_column(tbl.colnames[i])
+                for colname in tbl.colnames:
+                    unitstr = str(tbl[colname].unit)
+                    if unitstr == "e-/s":
+                        tbl[colname].unit = "electron/s"
+                    elif unitstr ==  "'electron'.s**-1":
+                        tbl[colname].unit = "electron/s"
+                    elif unitstr == "ct / s":
+                        tbl[colname].unit = "cts/s"
+                
             data.append(tbl)
         
             # raise NotImplementedError("{} is not implemented, only JWST is "
@@ -135,6 +145,20 @@ def ts_fits_reader(filename):
     
     #TODO: Deal with masked data 
 
+    return times, data
+
+@timer_func
+def ts_fits_reader(name):
+    
+    times = []
+    data = []
+
+    if isinstance(name, list):
+        for filename in name:
+            times, data = ts_single_fits_reader(filename, times, data)
+    else:
+        times, data = ts_single_fits_reader(name, times, data)
+            
     return times, data
 
 
@@ -145,33 +169,42 @@ if __name__ == '__main__':
     filename = 'jw02783-o002_t001_miri_p750l-slitlessprism_x1dints.fits'
     time, data = ts_fits_reader(os.path.join(DATADIR, filename))
     
-    
-    
+    filename = 'P0505720401PNS001SRCTSR800C.FTZ'
+    time, data = ts_fits_reader(os.path.join(DATADIR, filename))
     
     
     import requests,io, gzip
     import tempfile
     
-    tap_server = 'https://jwst.esac.esa.int/server/tap/sync'
-    q = 'SELECT a.artifactid FROM  jwst.artifact AS a  WHERE a.uri LIKE \'%{0}%.fits\' AND a.uri LIKE \'%{1}%\' ORDER BY a.filename DESC'.format('x1dints','jw02783-o002_t001_miri_p750l-slitlessprism')
-    r = requests.post(tap_server, data = {
-        'REQUEST':'doQuery',
-        'LANG':'ADQL',
-        'FORMAT':'json',
-        'PHASE':'RUN',
-        'QUERY':q
-        })
-    artifact_id = r.json()['data'][0][0]
-    url_dp = 'https://jwst.esac.esa.int/server/data?ARTIFACTID={}&RETRIEVAL_TYPE=PRODUCT'.format(artifact_id)
-    # function dp_request
+    # tap_server = 'https://jwst.esac.esa.int/server/tap/sync'
+    # q = 'SELECT a.artifactid FROM  jwst.artifact AS a  WHERE a.uri LIKE \'%{0}%.fits\' AND a.uri LIKE \'%{1}%\' ORDER BY a.filename DESC'.format('x1dints','jw02783-o002_t001_miri_p750l-slitlessprism')
+    # r = requests.post(tap_server, data = {
+    #     'REQUEST':'doQuery',
+    #     'LANG':'ADQL',
+    #     'FORMAT':'json',
+    #     'PHASE':'RUN',
+    #     'QUERY':q
+    #     })
+    # artifact_id = r.json()['data'][0][0]
+    # url_dp = 'https://jwst.esac.esa.int/server/data?ARTIFACTID={}&RETRIEVAL_TYPE=PRODUCT'.format(artifact_id)
+    # # function dp_request
+    # resp = requests.get(url_dp, timeout=1, verify=True)
+    # #fits_content = io.BytesIO(gzip.decompress(resp.content))
+    # # function get_data
+    # fits_content = gzip.decompress(resp.content)
+    # with tempfile.NamedTemporaryFile(delete=True) as fp:
+    #     fp.write(fits_content)
+    #     # Determine content-type in response (VOTable, FITS or csv)
+    #     if resp.headers['content-type'] == 'application/fits':
+    #         if os.path.exists(fp.name):
+    #             time, data = ts_fits_reader(fp.name)
+    
+    url_dp = 'https://nxsa.esac.esa.int/nxsa-sl/servlet/data-action-aio?obsno={0}&sourceno={1}&extension=FTZ&level=PPS&instname=PN&name=SRCTSR&expflag=X'.format('0505720401', '00C')
     resp = requests.get(url_dp, timeout=1, verify=True)
-    #fits_content = io.BytesIO(gzip.decompress(resp.content))
-    # function get_data
     fits_content = gzip.decompress(resp.content)
     with tempfile.NamedTemporaryFile(delete=True) as fp:
-        fp.write(fits_content)
+        fp.write(fits_content)      
         # Determine content-type in response (VOTable, FITS or csv)
-        if resp.headers['content-type'] == 'application/fits':
+        if resp.headers['content-type'] in ['image/fits','application/fits', 'application/x-tar']:
             if os.path.exists(fp.name):
                 time, data = ts_fits_reader(fp.name)
-    

@@ -7,6 +7,7 @@ import os
 from urllib.parse import urljoin
 import gzip
 import tempfile
+import tarfile
 
 import astropy.units as u
 from astropy.utils.misc import JsonCustomEncoder
@@ -90,7 +91,7 @@ def dp_request(url_str, id):
     
 def get_data(resp):    
     '''Function to get response content in a byte array and then in time and data, depending of the content type'''
-    
+    #block to visualize the content
     try:
         res = gzip.decompress(resp.content)
     except OSError:
@@ -109,12 +110,23 @@ def get_data(resp):
     with tempfile.NamedTemporaryFile(delete=False) as fp:
         fp.write(resp.content)
         # Determine content-type in response (VOTable, FITS or csv)
-        if resp.headers['content-type'] == 'application/fits':
+        if resp.headers['content-type'] in ['image/fits', 'application/fits']:
             if os.path.exists(fp.name):
                 time, data = ts_fits_reader(fp.name)
         elif resp.headers['content-type'] == 'application/x-votable+xml': 
             if os.path.exists(fp.name):
                 time, data = ts_votable_reader(fp.name)
+        elif resp.headers['content_type'] == 'application/x-tar':
+            with tarfile.open(fileobj=fp, mode='r') as tar:
+                if os.path.exists(fp.name):
+                    path = os.path.dirname(fp.name)
+                    tar.extractall(path) # extract files in the temporal directory
+                    list_names = [os.path.join(path, name) for name in tar.getnames()]
+                    exts = [os.path.splitext(name)[-1] for name in list_names]
+                    if all(ext in ['.fits', '.fit', '.FTZ'] for ext in exts):
+                        time, data = ts_fits_reader(list_names)
+                    else:
+                       raise NotImplementedError("Error: vo_parser does not handle tar files. They are generally serialized as resources.") 
     return time, data
 
 
@@ -231,7 +243,7 @@ def get_data_to_plot():
     if target_time_scale:
         d.convert_time_scale(target_time_scale)# tcb
     #WARNING: ad-hoc code to skip instrumental units for Gaia
-    if target_flux_unit and target_flux_unit.strip() not in ("electron/s"):
+    if target_flux_unit and target_flux_unit.strip() not in ("electron/s", "cts/s"):
         d.convert_flux(u.Unit(u_target_flux))# u.mJy
     
     #WARNING: functional code to get alt_data_unit for instrumental units

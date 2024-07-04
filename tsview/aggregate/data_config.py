@@ -23,5 +23,16 @@ DATA_DICT = {
               'cid': None,
               'multi': 'FILTER',
               'cextra': 'WAVELENGTH'}    
+        },
+'xmm': {
+    'system': 'VEGAMAG',
+    'zeropt': {'EMOS1': {'VEGAMAG': { 'lamb': 200 * u.eV}},
+               'EMOS2': {'VEGAMAG': { 'lamb': 200 * u.eV}},
+               'EPN': {'VEGAMAG': { 'lamb': 200 * u.eV}},
+               },
+    'graphic': {'y': {'colname': 'RATE', 'units': 'cts/s'},
+              'y_err': {'colname': 'ERROR', 'units': 'cts/s'},
+              'cid': None,
+              'multi': 'INSTRUME'}    
         }
 }
