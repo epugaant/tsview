@@ -135,7 +135,7 @@ def _create_cors_response():
 def get_data_to_plot():
     if request.method == "OPTIONS": # CORS preflight
             return _build_cors_preflight_response()
-
+    
     # Check if an ID was provided as part of the URL.
     # If ID is provided, assign it to a variable.
     # If no ID is provided, display an error in the browser.
@@ -143,7 +143,7 @@ def get_data_to_plot():
 
     mission = query_parameters.get('mission')
     system = query_parameters.get('system')
-    time_view = query_parameters.get('timeView')
+    time_view = str2bool(query_parameters.get('timeView'))
 
     try:
         sourceID = request.args['sourceID']
@@ -226,9 +226,9 @@ def get_data_to_plot():
         d = DataProcess(mission, time, data) 
 
         
-    if target_time_unit:
+    if target_time_unit and time_view:
         d.convert_time(target_time_unit)# mjd
-    if target_time_scale:
+    if target_time_scale and time_view:
         d.convert_time_scale(target_time_scale)# tcb
     #WARNING: ad-hoc code to skip instrumental units for Gaia
     if target_flux_unit and target_flux_unit.strip() not in ("electron/s"):
@@ -239,7 +239,7 @@ def get_data_to_plot():
         d.alt_data_unit =  equivalent_units(u.mJy.to_string()) + ['mJy']
 
     response = _create_cors_response()
-    response.data = d.to_plotly(time=str2bool(time_view))
+    response.data = d.to_plotly(time=time_view)
     return response
 
 @app.route('/ts/v1/modifytime', methods=['GET', 'OPTIONS'])
