@@ -452,6 +452,8 @@ class DataProcess:
 
     def create_scatter(self, x, y, error_y, index=None, z=None) -> go.Scatter:
         '''function to create the scatter plot ouf of simple dataframe value (no quantities)'''
+        if z is not None:
+            error_y['color'] = "#444444"
         scatter = go.Scatter(x=x, y=y, error_y=error_y, name=index)
         scatter.mode = 'markers'
         scatter.hovertemplate = r'%{yaxis.title.text}: %{y}<br>%{xaxis.title.text}: %{x}'
