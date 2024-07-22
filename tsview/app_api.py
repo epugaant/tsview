@@ -42,52 +42,114 @@ def str2bool(val):
     else:
         raise ValueError("invalid truth value %r" % (val,))
 
-def mission_config(data_access, mission):
-    '''Return the single dictionary corresponding to the mission'''
-    # check if mission is in schema if not raise exception
-    if not any(d['mission'] == mission for d in data_access): 
-        raise NotImplementedError("Mission {} schema for time series is not implemented yet".format(mission))
-    mission_access = [d for d in data_access if d['mission'] == mission][0]
-    return mission_access
+class Aio:
+    def __init__(self, mission):
+        self.mission = mission
+        self.server_url = None
+        self.endpoint = None
+        self.query = None
+        self.adql_info = None
+        self.query_replacement = None
+        for data in DATA_ACCESS:
+            if data['mission'] == mission:
+                self.server_url = data['server_url']
+                self.endpoint = data['endpoint']
+                self.query = data['query']
+                self.adql_info = data.get('adql_info', None)
+                self.query_replacement = data.get('query_replacement', None)
+                break
+        if self.server_url is None:
+            raise ValueError('Mission not found: {}'.format(mission))
+            
+    def format_query(self,param):
+        '''function to compose two stages with the query parameters (e.g. slicing of detid for xmm-epic)'''
+        if self.query_replacement:
+            return self.query.format(*eval(self.query_replacement))
+        else:
+            return self.query.format(param)
+        
+    def adql_request(self, obsID, prodType):
+        '''Function to generate request to TAP Server using ADQL query to get data product id, e.g. artifact id'''
+    
+        r = requests.post(self.adql_info['url'], data = {
+        'REQUEST': self.adql_info['REQUEST'],
+        'LANG': self.adql_info['LANG'],
+        'FORMAT': self.adql_info['FORMAT'],
+        'PHASE': self.adql_info['PHASE'],
+        'QUERY': self.adql_info['QUERY'].format(prodType, obsID)
+        })
+        #print(r.json())
+        id = r.json()['data'][0][0]
+        return id
+    
+    def dp_request(self, url):
+        '''Funtion to request data product through server´s response. Outputs a list of Times and a list of Tables.'''
+
+        #Get response from API
+        try:
+            resp = requests.get(url, timeout=20, verify=True)
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as errh:
+            print("HTTP Error")
+            print(errh.args[0])
+        except requests.exceptions.ReadTimeout as errrt:
+            print("Time out")
+        except requests.exceptions.ConnectionError as conerr:
+            print("Connection error")
+        except requests.exceptions.RequestException as errex:
+            print("Exception request")
+        
+        return resp
+
+
+# def mission_config(data_access, mission):
+#     '''Return the single dictionary corresponding to the mission'''
+#     # check if mission is in schema if not raise exception
+#     if not any(d['mission'] == mission for d in data_access): 
+#         raise NotImplementedError("Mission {} schema for time series is not implemented yet".format(mission))
+#     mission_access = [d for d in data_access if d['mission'] == mission][0]
+#     return mission_access
+
     
 def build_dp_url(server_url, endpoint_path, query_params):
     '''Construct string with url with placeholders for parameters'''
     base_url = urljoin(server_url, endpoint_path)
     return base_url  + "?" + query_params
 
-def adql_request(adql_info, obsID, prodType):
-    '''Function to generate request to TAP Server using ADQL query to get data product id, e.g. artifact id'''
+# def adql_request(adql_info, obsID, prodType):
+#     '''Function to generate request to TAP Server using ADQL query to get data product id, e.g. artifact id'''
     
-    r = requests.post(adql_info['url'], data = {
-    'REQUEST': adql_info['REQUEST'],
-    'LANG':adql_info['LANG'],
-    'FORMAT':adql_info['FORMAT'],
-    'PHASE':adql_info['PHASE'],
-    'QUERY':adql_info['QUERY'].format(prodType, obsID)
-    })
-    print(r.json())
-    id = r.json()['data'][0][0]
-    return id
+#     r = requests.post(adql_info['url'], data = {
+#     'REQUEST': adql_info['REQUEST'],
+#     'LANG':adql_info['LANG'],
+#     'FORMAT':adql_info['FORMAT'],
+#     'PHASE':adql_info['PHASE'],
+#     'QUERY':adql_info['QUERY'].format(prodType, obsID)
+#     })
+#     print(r.json())
+#     id = r.json()['data'][0][0]
+#     return id
     
-def dp_request(url_str, id):
-    '''Funtion to request data product through server´s response. Outputs a list of Times and a list of Tables.'''
+# def dp_request(url_str, id):
+#     '''Funtion to request data product through servers response. Outputs a list of Times and a list of Tables.'''
 
-    url = url_str.format(id)
-    #Get response from API
-    try:
-        resp = requests.get(url, timeout=20, verify=True)
-        resp.raise_for_status()
-    except requests.exceptions.HTTPError as errh:
-        print("HTTP Error")
-        print(errh.args[0])
-    except requests.exceptions.ReadTimeout as errrt:
-        print("Time out")
-    except requests.exceptions.ConnectionError as conerr:
-        print("Connection error")
-    except requests.exceptions.RequestException as errex:
-        print("Exception request")
+#     url = url_str.format(id)
+#     #Get response from API
+#     try:
+#         resp = requests.get(url, timeout=20, verify=True)
+#         resp.raise_for_status()
+#     except requests.exceptions.HTTPError as errh:
+#         print("HTTP Error")
+#         print(errh.args[0])
+#     except requests.exceptions.ReadTimeout as errrt:
+#         print("Time out")
+#     except requests.exceptions.ConnectionError as conerr:
+#         print("Connection error")
+#     except requests.exceptions.RequestException as errex:
+#         print("Exception request")
     
     return resp
+
     
 def get_data(resp):    
     '''Function to get response content in a byte array and then in time and data, depending of the content type'''
@@ -109,6 +171,7 @@ def get_data(resp):
     # Delete needs to be False, otherwise the file isn't findable on Windows machines
     with tempfile.NamedTemporaryFile(delete=False) as fp:
         fp.write(resp.content)
+        fp.seek(0)
         # Determine content-type in response (VOTable, FITS or csv)
         if resp.headers['content-type'] in ['image/fits', 'application/fits']:
             if os.path.exists(fp.name):
@@ -116,17 +179,18 @@ def get_data(resp):
         elif resp.headers['content-type'] == 'application/x-votable+xml': 
             if os.path.exists(fp.name):
                 time, data = ts_votable_reader(fp.name)
-        elif resp.headers['content_type'] == 'application/x-tar':
+        elif resp.headers['content-type'] == 'application/x-tar':
             with tarfile.open(fileobj=fp, mode='r') as tar:
                 if os.path.exists(fp.name):
-                    path = os.path.dirname(fp.name)
-                    tar.extractall(path) # extract files in the temporal directory
-                    list_names = [os.path.join(path, name) for name in tar.getnames()]
-                    exts = [os.path.splitext(name)[-1] for name in list_names]
-                    if all(ext in ['.fits', '.fit', '.FTZ'] for ext in exts):
-                        time, data = ts_fits_reader(list_names)
-                    else:
-                       raise NotImplementedError("Error: vo_parser does not handle tar files. They are generally serialized as resources.") 
+                    with tempfile.TemporaryDirectory() as tmpdirname:
+                        tar.extractall(path=tmpdirname) # extract files in the temporal directory
+                        list_names = tar.getnames()
+                        list_names = [os.path.join(tmpdirname,filename) for filename in list_names]
+                        exts = [os.path.splitext(name)[-1] for name in list_names]
+                        if all(ext in ['.fits', '.fit', '.FTZ'] for ext in exts):
+                            time, data = ts_fits_reader(list_names)
+                        else:
+                            raise NotImplementedError("Error: vo_parser does not handle tar files. They are generally serialized as resources.") 
     return time, data
 
 
@@ -182,32 +246,35 @@ def get_data_to_plot():
         print('Data not cached yet. Requesting data from server.')
         if mission:
             #select the mission access details
-            mission_access = mission_config(DATA_ACCESS, mission)
-            server_url = mission_access['server_url']
-            endpoint_path = mission_access['endpoint']
-            query_params = mission_access['query']
+            aio = Aio(mission)
+            # mission_access = mission_config(DATA_ACCESS, mission)
+            # server_url = mission_access['server_url']
+            # endpoint_path = mission_access['endpoint']
+            # query_params = mission_access['query']
 
             #check if there is an adql query necessary
-            if 'adql_info' in mission_access:
-                adql_info = mission_access['adql_info']
-                
+            # if 'adql_info' in mission_access:
+            #     adql_info = mission_access['adql_info']
+            if aio.adql_info:   
                 prodType = query_parameters['prodType']
                 if 'obsID' in query_parameters:
-                    id = adql_request(adql_info, obsID, prodType)
+                    id = aio.adql_request(obsID, prodType)
                 else:
                     raise Exception('obsID is mandatory for mission {}'.format(mission))
             else:
-                adql_info = None
+                #adql_info = None
                 if 'sourceID' in query_parameters:
                     id = sourceID
                 else:
                     raise Exception('sourceID is mandatory for mission {}'.format(mission))
 
             # Construct the url string to request https server data
-            url_str = build_dp_url(server_url, endpoint_path, query_params)
+            # url_str = build_dp_url(server_url, endpoint_path, query_params)
+            url = build_dp_url(aio.server_url, aio.endpoint, aio.format_query(id))
             
             # Data request 
-            resp = dp_request(url_str, id)
+            #resp = dp_request(url_str, id)
+            resp = aio.dp_request(url)
         
             # Data extraction
             time, data = get_data(resp)
@@ -356,7 +423,7 @@ if __name__ == '__main__':
 mission = 'gaia'
 sourceID = 'Gaia+DR3+4111834567779557376'
 native units
-http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376
+http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&timeView=True
 calibrated units
 http://0.0.0.0:8000/ts/v1?mission=gaia&sourceID=Gaia+DR3+4111834567779557376&target_time_unit=mjd&target_flux_unit=mJy
 
@@ -374,9 +441,15 @@ mission = 'jwst'
 sourceID = None,
 obsID = 'jw02783-o002_t001_miri_p750l-slitlessprism'
 prodType = 'x1dints' 
-http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints
+http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints&timeView=True
 http://0.0.0.0:8000/ts/v1?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&prodType=x1dints&target_time_unit=jd&target_flux_unit=Jy&timeView=True
 http://0.0.0.0:8000/ts/v1/modifyflux?mission=jwst&obsID=jw02783-o002_t001_miri_p750l-slitlessprism&target_flux_unit=Jy&timeView=True
+
+mission = 'xmm-epic',
+sourceID = '106945101010025', is really the detection ID
+native units
+http://0.0.0.0:8000/ts/v1?mission=xmm-epic&sourceID=105057204010012&timeView=True
+
 '''
 
 app.config["SECRET_KEY"] = "any random string"

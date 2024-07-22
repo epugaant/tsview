@@ -101,9 +101,9 @@ def column_factory(t, colname_basis,  data_dict, sys, expr, cid, id):
 
 
 
-def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_unit=None, orig_unit=None, fluxe_col=None):
+def data_convert_unit(t, flux_col, data_dict, sys, expr, cid=None, id=None, target_unit=None, orig_unit=None, fluxe_col=None):
     '''Function to convert intrumental flux (or magnitude without physical type) to 
-    calibrated physical type (using zeropoint)'''
+    calibrated physical type (using zeropoint section of mission dictionary)'''
     
     if t[flux_col].unit.is_equivalent(u.mag):
         t[flux_col].unit = u.mag()
@@ -126,7 +126,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
     if orig_unit.physical_type in ('unknown', 'dimensionless'):
         #check if f_zp_nu field exists in dictionary
         if glom.glom(data_dict, '**.f_zp_nu'):
-            f_zp_nu = column_factory(t, 'f_zp_nu', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
+            f_zp_nu = column_factory(t, 'f_zp_nu', data_dict, sys, expr, cid, id)
             if isinstance(orig_unit, u.MagUnit):
                 if fluxe_col in t.colnames:
                     f, ef = f_zp_nu.quantity * magErrToFlux(t[flux_col].quantity, t[fluxe_col].quantity)# [u.Jy] * [dimensionless]
@@ -135,7 +135,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
             #convert to logaritmic scales for compatibility with zp
             else:
                 if glom.glom(data_dict, '**.zp'):
-                    zp = column_factory(t, 'zp', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
+                    zp = column_factory(t, 'zp', data_dict, sys, expr, cid, id)
                 else:
                     print('No mag zeropoint exists in the data_dict')
                     return []
@@ -143,7 +143,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                     minst, eminst = fluxErrToMag(t[flux_col].quantity, t[fluxe_col].quantity)
                     #include zp uncertainty in propagation, if you have it
                     if glom.glom(data_dict, '**.e_zP'):
-                        e_zp = column_from_column_index(t, 'band', data_dict, '**.{{}}.**.{0}.**.{1}'.format(sys, 'e_zP'))
+                        e_zp = column_from_column_index(t, 'band', data_dict, expr.format(sys, 'e_zP'))
                         em = np.sqrt(eminst.value**2+ e_zp.value**2) * minst.unit # No astropy unit can do addition in quadrature
                     else:
                         em = eminst
@@ -169,7 +169,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                         f = msys
                 # from intermediate units, to target untis
             if target_unit != f_zp_nu.unit and target_unit != units.VEGAMAG:
-                wave = column_factory(t, 'lamb', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
+                wave = column_factory(t, 'lamb', data_dict, sys, expr, cid, id)
                 vega = SourceSpectrum.from_vega()
                 f_int = f
                 f = convert_flux_by_wave(wave.quantity, f, target_unit, vegaspec=vega)
@@ -182,7 +182,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
         else:
             print('No flux zeropoint exists in the data_dict. We will do an approximation with convert_flux')
             #conversion using synphot conver_flux with model when VEGA photometric system
-            wave = column_factory(t, 'lamb', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
+            wave = column_factory(t, 'lamb', data_dict, sys, expr, cid, id)
             vega = SourceSpectrum.from_vega()  # For unit conversion  
             if isinstance(orig_unit, u.MagUnit):
                 f = convert_flux_by_wave(wave.quantity, t[flux_col].quantity, target_unit, vegaspec=vega)
@@ -192,7 +192,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                     ef = abs(f_plus.value-f.value) * f.unit
             else:
                 if glom.glom(data_dict, '**.zp'):
-                     zp = column_factory(t, 'zp', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
+                     zp = column_factory(t, 'zp', data_dict, sys, expr, cid, id)
                 else:
                     print('No mag zeropoint exists in the data_dict')
                     return []
@@ -202,7 +202,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                 if fluxe_col in t.colnames:
                     _, eminst = fluxErrToMag(t[flux_col].quantity, t[fluxe_col].quantity)
                     if glom.glom(data_dict, '**.e_zP'):
-                        e_zp = column_from_column_index(t, 'band', data_dict, '**.{{}}.**.{0}.**.{1}'.format('VEGAMAG', 'e_zP'))
+                        e_zp = column_from_column_index(t, 'band', data_dict, expr.format('VEGAMAG', 'e_zP'))
                         em = np.sqrt(eminst.value**2+ e_zp.value**2) * minst.unit # No astropy unit can do addition in quadrature
                     else:
                         em = eminst
@@ -212,7 +212,7 @@ def data_convert_unit(t, flux_col, data_dict, sys, cid=None, id=None, target_uni
                     ef = abs(f_plus.value-f.value) * f.unit
     #if physical units are calibrated (e.g. mag(AB), Jy)
     else:
-        wave = column_factory(t, 'lamb', data_dict, sys, '**.{{}}.**.{0}.**.{1}', cid, id)
+        wave = column_factory(t, 'lamb', data_dict, sys, expr, cid, id)
         vega = SourceSpectrum.from_vega() 
         f = convert_flux_by_wave(wave.quantity, t[flux_col].quantity, target_unit, vegaspec=vega)
         if fluxe_col in t.colnames:
@@ -330,6 +330,7 @@ class DataProcess:
     time_collection: list[Time]
     table_collection: list[Table]
     system: str|None = field(default = None) #init=False)
+    expr: str|None = field(default = None) 
     cextra: str|None = field(init=False)
     cid: str|None = field(init=False)
     multi: str|None = field(init=False)
@@ -345,12 +346,17 @@ class DataProcess:
     def __post_init__(self):
         graphic_dict =  DATA_DICT[self.mission]['graphic']
         
+        
         if not self.system:
             try:
                 self.system = DATA_DICT[self.mission]['system']
             except KeyError:
                 raise Exception("Photometric system undefined in configuration")
-        
+        if not self.expr:
+            try:
+                self.expr = DATA_DICT[self.mission]['expr']
+            except KeyError:
+                raise Exception("Expression to reach the zeropoint fields and preserve iteration fields undefined in configuration")
         try:
             [self.cid] = glom.glom(graphic_dict, '**.cid')
         except:
@@ -428,14 +434,14 @@ class DataProcess:
             if self.timeseries[i].data_unit != target_unit:
                 if self.err_y_colname:
                     if self.cid:
-                        self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
+                        self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, self.expr, cid=self.cid, target_unit=target_unit, fluxe_col=self.err_y_colname)
                     elif self.multi:
-                        self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, id=self.table_collection[i].meta[self.multi], target_unit=target_unit, fluxe_col=self.err_y_colname)
+                        self.timeseries[i].flux, self.timeseries[i].flux_error = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, self.expr, id=self.table_collection[i].meta[self.multi], target_unit=target_unit, fluxe_col=self.err_y_colname)
                 else:
                     if self.cid:
-                        self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, cid=self.cid, target_unit=target_unit)
+                        self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, self.expr, cid=self.cid, target_unit=target_unit)
                     elif self.multi:
-                        self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, id=self.table_collection[i].meta[self.multi], target_unit=target_unit)
+                        self.timeseries[i].flux = data_convert_unit(self.table_collection[i], self.y_colname, zpt_dict, self.system, self.expr, id=self.table_collection[i].meta[self.multi], target_unit=target_unit)
                 self.timeseries[i].data_unit = target_unit
         self.data_unit = target_unit
         self.alt_data_unit = equivalent_units(self.data_unit.to_string())
@@ -473,6 +479,7 @@ class DataProcess:
 
     def to_plotly(self, time=True) -> str:
         '''Function to generate the plotly.Figure object using graph_object'''
+        zpt_dict = DATA_DICT[self.mission]['zeropt']
         if self.cextra is not None:
             COLS.append('extra')
             NEW_COLS.append('z')
@@ -481,7 +488,7 @@ class DataProcess:
             if self.cextra:
                 timeseries.extra_col = timeseries.extra_col.to(u.AA, equivalencies=u.spectral())
             df = timeseries.to_pandas().rename(columns=dict(zip(COLS, NEW_COLS)))
-            if len(timeseries.id_col) == len(timeseries.flux):
+            if len(timeseries.id_col) == len(timeseries.flux): # equivalent to self.cid
                 df[timeseries.id] = timeseries.id_col.astype('U13')
                 #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
                 for index, df_group in df.groupby(timeseries.id):
@@ -490,8 +497,8 @@ class DataProcess:
                     if self.cextra:
                         z = df_group.z
                     else:
-                        tbl = Table([timeseries.id_col.data], names=[timeseries.id])
-                        z = column_factory(tbl, 'lamb', DATA_DICT, self.system, '**.{{}}.**.{0}.**.{1}', self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                        tbl = Table([timeseries.id_col], names=[timeseries.id])
+                        z = column_factory(tbl, 'lamb', zpt_dict, self.system, self.expr, self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                     if timeseries.flux_error is None:
                         error_y = None
                     else:
@@ -500,14 +507,17 @@ class DataProcess:
                                 array=df_group.error_y,
                                 visible=True)
                     fig.add_trace(self.create_scatter(x, y, error_y, index=index)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index=index))
-            elif len(timeseries.id_col) == 1: 
+            elif len(timeseries.id_col) == 1: # equivalent to self.multi
                 x = df.x 
                 y = df.y
                 if self.cextra:
                     z = df.z
-                else:
-                    tbl = Table([timeseries.id_col], names=[timeseries.id])
-                    z = column_factory(tbl, 'lamb', DATA_DICT, self.system, '**.{{}}.**.{0}.**.{1}', self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                else: #this is the xmm case
+                    if time:
+                        z = None
+                    else:
+                        tbl = Table([timeseries.id_col], names=[timeseries.id])
+                        z = column_from_column_index(tbl, self.multi, zpt_dict, self.expr.format(self.system, 'lamb')).quantity.to(u.AA, equivalencies=u.spectral()).value
                 if timeseries.flux_error is None:
                     error_y = None
                 else:
@@ -516,14 +526,14 @@ class DataProcess:
                             array=df.error_y,
                             visible=True)
                 fig.add_trace(self.create_scatter(x, y, error_y, index=timeseries.id_col[0], z=z)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index=timeseries.id_col[0])) 
-            else:
+            else: #not sure about this case
                 x = df.x 
                 y = df.y
                 if self.cextra:
                     z = df.z
                 else:
                     tbl = Table([timeseries.id_col], names=[timeseries.id])
-                    z = column_factory(tbl, 'lamb', DATA_DICT, self.system, '**.{{}}.**.{0}.**.{1}', self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                    z = column_factory(tbl, 'lamb', zpt_dict, self.system, self.expr, self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                 if timeseries.flux_error is None:
                     error_y = None
                 else:
@@ -596,6 +606,13 @@ if __name__ == '__main__':
     d.convert_flux(u.mJy)
     print(d.to_plotly(time=False))
     print(d.timeseries[0].extra)
+    
+    filename = 'P0505720401PNX000SRCTSR800C.fits'
+    time, data = ts_fits_reader(os.path.join(DATADIR, filename))
+    new_data = [tbl['RATE', 'ERROR'] for tbl in data]
+    d = DataProcess('xmm-epic', time, new_data, 'VEGAMAG')
+    print(d.to_json())
+    print(d.to_plotly(time=False))
     pass
     
     

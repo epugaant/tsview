@@ -12,6 +12,10 @@ from tsview.utils.timer import timer_func
 
 __all__ = ["ts_fits_reader"]
 
+def sanitize_weakrefs(times):
+    times_new = [Time(time.value, scale='tt', format=time.format) for time in times if time.scale == 'tt']
+    return times_new
+
 def locate_extension_with_keyword(tinfo, filename, keyword):
     for i in range(len(tinfo)):
         hdr = fits.getheader(filename, i, ignore_missing_simple=True)
@@ -136,7 +140,7 @@ def ts_single_fits_reader(filename, times, data):
                     elif unitstr ==  "'electron'.s**-1":
                         tbl[colname].unit = "electron/s"
                     elif unitstr == "ct / s":
-                        tbl[colname].unit = "cts/s"
+                        tbl[colname].unit = "ct/s"
                 
             data.append(tbl)
         
@@ -144,6 +148,9 @@ def ts_single_fits_reader(filename, times, data):
             #                       "supported through this reader".format(telescop))
     
     #TODO: Deal with masked data 
+    
+    #created for the xmm timeseries, as the scale in Terrestrial time gives error due to weakrefs
+    times = sanitize_weakrefs(times)
 
     return times, data
 
