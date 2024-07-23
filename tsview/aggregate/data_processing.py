@@ -486,21 +486,22 @@ class DataProcess:
             COLS.append('extra')
             NEW_COLS.append('z')
         fig = go.Figure()
-        for timeseries in self.timeseries:
+        for i,timeseries in enumerate(self.timeseries):
             if self.cextra:
                 timeseries.extra_col = timeseries.extra_col.to(u.AA, equivalencies=u.spectral())
             df = timeseries.to_pandas().rename(columns=dict(zip(COLS, NEW_COLS)))
             if len(timeseries.id_col) == len(timeseries.flux): # equivalent to self.cid
                 df[timeseries.id] = timeseries.id_col.astype('U13')
+                tbl = Table([timeseries.id_col], names=[timeseries.id])
+                l = column_factory(tbl, 'lamb', zpt_dict, self.system, self.expr, self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                df['z'] = l
                 #thanks to https://stackoverflow.com/questions/22219004/how-to-group-dataframe-rows-into-list-in-pandas-groupby
                 for index, df_group in df.groupby(timeseries.id):
                     x = df_group.x 
                     y = df_group.y
-                    if self.cextra:
-                        z = df_group.z
-                    else:
-                        tbl = Table([timeseries.id_col], names=[timeseries.id])
-                        z = column_factory(tbl, 'lamb', zpt_dict, self.system, self.expr, self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
+                    z = df_group.z
+                        # tbl = Table([timeseries.id_col], names=[timeseries.id])
+                        # z = column_factory(tbl, 'lamb', zpt_dict, self.system, self.expr, self.cid, self.multi).quantity.to(u.AA, equivalencies=u.spectral()).value
                     if timeseries.flux_error is None:
                         error_y = None
                     else:
@@ -527,7 +528,7 @@ class DataProcess:
                             type='data', # value of error bar given in data coordinates
                             array=df.error_y,
                             visible=True)
-                fig.add_trace(self.create_scatter(x, y, error_y, index=timeseries.id_col[0], z=z)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index=timeseries.id_col[0])) 
+                fig.add_trace(self.create_scatter(x, y, error_y, index='{0} - {1}'.format(timeseries.id_col[0], i), z=z)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index='{0} - {1}'.format(timeseries.id_col[0], i))) 
             else: #not sure about this case
                 x = df.x 
                 y = df.y
@@ -547,6 +548,8 @@ class DataProcess:
         fig.update_layout(legend_title_text = self.mission)
         fig.update_xaxes(title_text='Time [{0} in {1}]'.format(self.time_format.upper(), self.time_scale.upper())) if time else fig.update_xaxes(title_text='Wavelength [{0}]'.format(u.AA.to_string().title()))
         fig.update_yaxes(title_text='{0} [{1}]'.format(self.y_colname.capitalize(), self.data_unit.to_string()))
+        if isinstance(self.data_unit, u.MagUnit):
+            fig.update_yaxes(autorange="reversed")
 
         plotly_json = fig.to_json(validate=True)
         
