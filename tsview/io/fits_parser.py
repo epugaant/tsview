@@ -13,8 +13,11 @@ from tsview.utils.timer import timer_func
 __all__ = ["ts_fits_reader"]
 
 def sanitize_weakrefs(times):
-    times_new = [Time(time.value, scale='tt', format=time.format) for time in times if time.scale == 'tt']
-    return times_new
+    if any(time.scale in ['tt'] for time in times):
+        times_new = [Time(time.value, scale='tt', format=time.format) for time in times if time.scale == 'tt']
+        return times_new
+    else:
+        return times
 
 def locate_extension_with_keyword(tinfo, filename, keyword):
     for i in range(len(tinfo)):
@@ -123,6 +126,14 @@ def ts_single_fits_reader(filename, times, data):
                 # It is a rateints so the Type is ImageHDU and that is a cube to inspect in slices dimension?
                 # TODO: Consult with Javier as this may be the handshake to cubeviewer.
                 pass
+        # case 'xmm':
+        #     ['RATE', 'RATE_ERR', 'FRACEXP', 'BACKV', 'BACKE'],
+        #     ['RATE1', 'RATE1_ERR', 'BACK1V', 'BACK1E'],
+        #     ['RATE2', 'RATE2_ERR', 'BACK2V', 'BACK2E'],
+        #     ['RATE3', 'RATE3_ERR', 'BACK3V', 'BACK3E'],
+        #     ['RATE4', 'RATE4_ERR', 'BACK4V', 'BACK4E'],
+        #     ['RATE5', 'RATE5_ERR', 'BACK5V', 'BACK5E']
+            
         case other:
             #times, data = [], []
             tbl = Table.read(filename, format='fits', astropy_native=True)
@@ -133,6 +144,7 @@ def ts_single_fits_reader(filename, times, data):
                 col.format = 'jd'
                 times.append(col)
                 tbl.remove_column(tbl.colnames[i])
+                
                 for colname in tbl.colnames:
                     unitstr = str(tbl[colname].unit)
                     if unitstr == "e-/s":
