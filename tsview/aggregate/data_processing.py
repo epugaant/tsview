@@ -528,7 +528,11 @@ class DataProcess:
                             type='data', # value of error bar given in data coordinates
                             array=df.error_y,
                             visible=True)
-                fig.add_trace(self.create_scatter(x, y, error_y, index='{0} - {1}'.format(timeseries.id_col[0], i), z=z)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index='{0} - {1}'.format(timeseries.id_col[0], i))) 
+                if self.cextra:
+                    index_str = '{0} - {1}'.format(timeseries.id_col[0], i)
+                else:
+                    index_str = '{0}'.format(timeseries.id_col[0])
+                fig.add_trace(self.create_scatter(x, y, error_y, index=index_str, z=z)) if time else fig.add_trace(self.create_scatter(z, y, error_y, index=index_str)) 
             else: #not sure about this case
                 x = df.x 
                 y = df.y
