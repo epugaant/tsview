@@ -11,7 +11,6 @@ from astropy.units import Quantity
 from synphot import units
 from synphot.spectrum import SourceSpectrum
 
-import pandas as pd
 import json
 import plotly.graph_objects as go
 
@@ -455,7 +454,7 @@ class DataProcess:
         if z is not None:
             error_y['color'] = "#444444"
         scatter = go.Scatter(x=x, y=y, error_y=error_y, name=index)
-        scatter.mode = 'markers'
+        scatter.mode = 'markers+lines' if self.cextra else 'markers'
         scatter.hovertemplate = r'%{yaxis.title.text}: %{y}<br>%{xaxis.title.text}: %{x}'
         if z is not None:
             scatter.marker=dict(
