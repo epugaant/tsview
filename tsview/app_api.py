@@ -101,54 +101,11 @@ class Aio:
         
         return resp
 
-
-# def mission_config(data_access, mission):
-#     '''Return the single dictionary corresponding to the mission'''
-#     # check if mission is in schema if not raise exception
-#     if not any(d['mission'] == mission for d in data_access): 
-#         raise NotImplementedError("Mission {} schema for time series is not implemented yet".format(mission))
-#     mission_access = [d for d in data_access if d['mission'] == mission][0]
-#     return mission_access
-
     
 def build_dp_url(server_url, endpoint_path, query_params):
     '''Construct string with url with placeholders for parameters'''
     base_url = urljoin(server_url, endpoint_path)
     return base_url  + "?" + query_params
-
-# def adql_request(adql_info, obsID, prodType):
-#     '''Function to generate request to TAP Server using ADQL query to get data product id, e.g. artifact id'''
-    
-#     r = requests.post(adql_info['url'], data = {
-#     'REQUEST': adql_info['REQUEST'],
-#     'LANG':adql_info['LANG'],
-#     'FORMAT':adql_info['FORMAT'],
-#     'PHASE':adql_info['PHASE'],
-#     'QUERY':adql_info['QUERY'].format(prodType, obsID)
-#     })
-#     print(r.json())
-#     id = r.json()['data'][0][0]
-#     return id
-    
-# def dp_request(url_str, id):
-#     '''Funtion to request data product through servers response. Outputs a list of Times and a list of Tables.'''
-
-#     url = url_str.format(id)
-#     #Get response from API
-#     try:
-#         resp = requests.get(url, timeout=20, verify=True)
-#         resp.raise_for_status()
-#     except requests.exceptions.HTTPError as errh:
-#         print("HTTP Error")
-#         print(errh.args[0])
-#     except requests.exceptions.ReadTimeout as errrt:
-#         print("Time out")
-#     except requests.exceptions.ConnectionError as conerr:
-#         print("Connection error")
-#     except requests.exceptions.RequestException as errex:
-#         print("Exception request")
-    
-    return resp
 
     
 def get_data(resp):    
@@ -290,15 +247,6 @@ def get_data_to_plot():
     else:
         pass
     
-    #  # Create a list for the objects
-    # times_list = [obj.info._represent_as_dict() for obj in time]
-    # times_final = json.dumps(times_list, cls=JsonCustomEncoder)
-   
-    # data_list = [obj.to_pandas().to_json() for obj in data]
-    # data_final = json.dumps(data_list)
-
-    # return {'time': times_final, 'times_len': len(times_list) , 'data': data_final, 'data_len': len(data_list)}
-    # #return jsonify({'times': [obj.info._represent_as_dict() for obj in time]}) 
     if system:
         d = DataProcess(mission, time, data, system)
     else:

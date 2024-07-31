@@ -19,17 +19,6 @@ DATA_DICT = {
               'cid': 'band',
               'multi': None}    
         },
-# 'jwst': {
-#     'system': 'VEGAMAG',
-#     'expr': '**.{{}}.**.{0}.**.{1}',
-#     'zeropt': {'P750L': {'VEGAMAG': { 'lamb': 8000 * u.AA}}
-#                },
-#     'graphic': {'y': {'colname': 'FLUX', 'units': 'Jy'},
-#               'y_err': {'colname': 'FLUX_ERROR', 'units': 'Jy'},
-#               'cid': None,
-#               'multi': 'FILTER',
-#               'cextra': 'WAVELENGTH'}    
-#         },
 'jwst': {
     'system': None,
     'expr': '**.{{}}.**.{1}',

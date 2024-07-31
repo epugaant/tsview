@@ -3,6 +3,8 @@ import os
 import warnings
 import numpy as np
 
+import pandas as pd
+
 from astropy.io import registry, fits
 from astropy.table import Table
 from astropy.time import Time, TimeDelta
@@ -184,7 +186,7 @@ def TSrebin(tstable, DTin, DTout):
             nrate5  = (    (rcum5[i2]-rcum5[i1]) / (fcum[i2]-fcum[i1])    )
             nerror5 = (np.sqrt(np.nan_to_num(ecum5[i2]-ecum5[i1]))/(fcum[i2]-fcum[i1]))
  
-            ntime= Time((tstable['TIME'][i2].value+tstable['TIME'][i1].value)/2., scale='tt', format=tstable['TIME'].format)
+            ntime= Time((tstable['TIME'][i2].value+tstable['TIME'][i1].value)/2., scale='tt', format='mjd')
             nfrac=(fcum[i2]-fcum[i1])/(i2-i1)
  
             ntstable = Table([ntime, nrate, nerror, nrate1, nerror1,nrate2, nerror2,nrate3, nerror3,nrate4, nerror4,nrate5, nerror5, nfrac],\
@@ -208,7 +210,7 @@ def TSrebin(tstable, DTin, DTout):
             nrate5  = (    (rcum5[i2]-rcum5[i1]) / (fcum[i2]-fcum[i1])    )
             nerror5 = (np.sqrt(np.nan_to_num(ecum5[i2]-ecum5[i1]))/(fcum[i2]-fcum[i1]))
  
-            ntime= Time((tstable['TIME'][i2].value+tstable['TIME'][i1].value)/2., scale='tt', format=tstable['TIME'].format)
+            ntime= Time((tstable['TIME'][i2].value+tstable['TIME'][i1].value)/2., scale='tt', format='mjd')
  
             ntstable = Table([ntime, nrate, nerror, nrate1, nerror1],\
                    names=['TIME','RATE','ERROR','RATE1','RATE1_ERR'])
@@ -301,24 +303,37 @@ def ts_single_fits_reader(filename, times, data):
         case 'xmm':
             
             MULTI_KEYWORDS = ['INSTRUME', 'FILTER', 'DSVAL4' ]
+            COLUMNS_TO_READ = [
+            'TIME',
+            'RATE', 'ERROR', 'RATE1', 'RATE1_ERR',
+            'RATE2', 'RATE2_ERR', 'RATE3', 'RATE3_ERR',
+            'RATE4', 'RATE4_ERR', 'RATE5', 'RATE5_ERR',
+            'FRACEXP','TIMEDEL'
+            ]
             hdr_multi = dict(filter(lambda i:i[0] in MULTI_KEYWORDS, hdr.items())) 
             
-            header = fits.getheader(filename, extname="RATE", ignore_missing_simple=True)
-            filter_keyword = header['FILTER']
-            instrume_keyword = header['INSTRUME']
-            tstart = header['TSTART']
-            tstop = header['TSTOP']
+            # header = fits.getheader(filename, extname="RATE", ignore_missing_simple=True)
+            # filter_keyword = header['FILTER']
+            # instrume_keyword = header['INSTRUME']
+            # tstart = header['TSTART']
+            # tstop = header['TSTOP']
 
-            # Save the content in a variable
-            header_keywords = {'FILTER': filter_keyword, 'INSTRUME': instrume_keyword, 'TSTART':tstart,'TSTOP':tstop}
+            # # Save the content in a variable
+            # header_keywords = {'FILTER': filter_keyword, 'INSTRUME': instrume_keyword, 'TSTART':tstart,'TSTOP':tstop}
             
+            # with fits.open(filename) as hdul:
+            #     rate = hdul['RATE'].data
+            #     # Ensure all columns are converted to the system's native endianness
+            # df = pd.DataFrame({col: rate[col].byteswap().newbyteorder() for col in COLUMNS_TO_READ})
+            # tbl = Table.from_pandas(df)
             tbl = Table.read(filename, format='fits', astropy_native=True)
+            
             
             # Bin data: tsr    = timeseries inicial # Tabla  ntsr = new timeseries, ya rebinned
             points_density = 512
             time_bin = tbl['TIMEDEL'][0] #binsize, same for all values in tseries
-            tstart=header_keywords['TSTART']
-            tstop=header_keywords['TSTOP']
+            tstart=tbl.meta['TSTART']
+            tstop=tbl.meta['TSTOP']
             new_time_bin = (tstop-tstart) / ( points_density-1 )
             t_bin_frac=int(np.round(new_time_bin/time_bin))
         
@@ -332,8 +347,10 @@ def ts_single_fits_reader(filename, times, data):
             else:
                 tbl = tbl
             # End bin data
-            tbl.meta.update(hdr_multi)
-            times, data = table_to_timeseries(tbl, times, data)
+            #extract unmasked table
+            tbl_unmasked = tbl[~(tbl['RATE'].mask | tbl['ERROR'].mask)]
+            tbl_unmasked.meta.update(hdr_multi)
+            times, data = table_to_timeseries(tbl_unmasked, times, data)
                 
         case other:
             #times, data = [], []

@@ -211,7 +211,7 @@ if __name__ == '__main__':
     from astropy.utils.misc import JsonCustomEncoder
     import numpy as np
     
-    url = 'https://gea.esac.esa.int/data-server/data?RETRIEVAL_TYPE=EPOCH_PHOTOMETRY&ID={0}&FORMAT=votable&RELEASE=Gaia+DR3&DATA_STRUCTURE=INDIVIDUAL'.format('Gaia+DR3+4111834567779557376')
+    url = 'https://gea.esac.esa.int/data-server/data?RETRIEVAL_TYPE=EPOCH_PHOTOMETRY&ID={0}&FORMAT=votable&RELEASE=Gaia+DR3&DATA_STRUCTURE=INDIVIDUAL'.format('Gaia DR3 2686848595970294400')#Gaia+DR3+4111834567779557376
     resp = requests.get(url, timeout=1, verify=True)
     res = resp.content
     if isinstance(resp.content, bytes):

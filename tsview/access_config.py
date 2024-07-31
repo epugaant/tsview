@@ -22,7 +22,7 @@ DATA_ACCESS = [
     {'mission': 'xmm-epic',   
      'server_url': 'https://nxsa.esac.esa.int',
      'endpoint': 'nxsa-sl/servlet/data-action-aio',
-     'query': 'obsno={0}&sourceno={1:03X}&extension=FTZ&level=PPS&instname=PN,M1,M2&name=SRCTSR&expflag=X',
+     'query': 'obsno={0}&sourceno={1:03X}&extension=FTZ&level=PPS&instname=PN&name=SRCTSR&expflag=X',
      'query_replacement': 'param[1:-4], int(param[-4:].strip("0"))'                                                                                                         
      }
     ]
